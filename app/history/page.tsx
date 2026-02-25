@@ -35,8 +35,14 @@ export default function HistoryPage() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedVideos, setSelectedVideos] = useState<Set<string>>(new Set());
   const [analyticsRefresh, setAnalyticsRefresh] = useState(0);
+  const [isClient, setIsClient] = useState(false);
 
   usePageTitle("Watch History");
+
+  // Set client flag on mount
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // Auto-refresh analytics every 5 seconds for frequent updates
   useEffect(() => {
@@ -49,6 +55,7 @@ export default function HistoryPage() {
 
   // Load watch history from localStorage
   useEffect(() => {
+    if (!isClient) return
     setIsLoading(true);
     try {
       const history = localStorage.getItem('watchHistory');
@@ -68,7 +75,7 @@ export default function HistoryPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isClient]);
 
   // Filter and sort history
   useEffect(() => {
@@ -138,27 +145,42 @@ export default function HistoryPage() {
   }, [watchHistory, searchQuery, sortBy, sortOrder, filterBy]);
 
   const handleRemoveFromHistory = useCallback((videoId: string | number) => {
+    if (!isClient) return
     const updatedHistory = watchHistory.filter((video) => video.id !== videoId);
     setWatchHistory(updatedHistory);
-    localStorage.setItem('watchHistory', JSON.stringify(updatedHistory));
-  }, [watchHistory]);
+    try {
+      localStorage.setItem('watchHistory', JSON.stringify(updatedHistory));
+    } catch (error) {
+      console.error('Error removing from history:', error)
+    }
+  }, [watchHistory, isClient]);
 
   const handleClearAll = useCallback(() => {
+    if (!isClient) return
     if (confirm('Are you sure you want to clear all watch history? This action cannot be undone.')) {
       setWatchHistory([]);
       setFilteredHistory([]);
-      localStorage.removeItem('watchHistory');
+      try {
+        localStorage.removeItem('watchHistory');
+      } catch (error) {
+        console.error('Error clearing history:', error)
+      }
       setSelectedVideos(new Set());
     }
-  }, []);
+  }, [isClient]);
 
   const handleBatchDelete = useCallback(() => {
+    if (!isClient) return
     const updatedHistory = watchHistory.filter(video => !selectedVideos.has(video.id.toString()));
     setWatchHistory(updatedHistory);
-    localStorage.setItem('watchHistory', JSON.stringify(updatedHistory));
+    try {
+      localStorage.setItem('watchHistory', JSON.stringify(updatedHistory));
+    } catch (error) {
+      console.error('Error batch deleting:', error)
+    }
     setSelectedVideos(new Set());
     setIsSelectionMode(false);
-  }, [watchHistory, selectedVideos]);
+  }, [watchHistory, selectedVideos, isClient]);
 
   const toggleVideoSelection = useCallback((videoId: string) => {
     setSelectedVideos(prev => {

@@ -1,89 +1,41 @@
+// API routes cannot use localStorage - this is client-side only storage
+// These endpoints should be used only from client-side code
+// The actual like functionality is handled by the LikedVideosProvider context
+
 import { NextResponse } from 'next/server';
 
-// Assume you have database interaction functions
-// import { addLike, removeLike, getLikedVideos } from '@/lib/db'; 
+export const runtime = 'nodejs'
 
-export const runtime = 'edge'
-
-// Placeholder for user type - replace with your actual user type
-
-// Placeholder function - replace with actual DB call
-async function addLike(userId: string, videoId: string): Promise<boolean> {
-  console.log(`Placeholder: Adding like for user ${userId} on video ${videoId}`);
-  // Simulate DB operation
-  return true; 
-}
-
-// Placeholder function - replace with actual DB call
-async function removeLike(userId: string, videoId: string): Promise<boolean> {
-  console.log(`Placeholder: Removing like for user ${userId} on video ${videoId}`);
-  // Simulate DB operation
-  return true; 
-}
-
-// Use localStorage to store liked videos
-const STORAGE_KEY = 'liked_videos';
-
-// Helper function to get liked videos from localStorage
-function getLikedVideosFromStorage(): string[] {
-  if (typeof window === 'undefined') return [];
-  const stored = localStorage.getItem(STORAGE_KEY);
-  return stored ? JSON.parse(stored) : [];
-}
-
-// Helper function to save liked videos to localStorage
-function saveLikedVideosToStorage(videoIds: string[]): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(videoIds));
-}
-
-// GET /api/likes - Fetches liked videos for the current user
+// GET /api/likes - Returns empty array (likes are stored client-side via context)
 export async function GET(request: Request) {
   try {
-    const likedVideos = getLikedVideosFromStorage();
-    return NextResponse.json(likedVideos);
+    // localStorage is not available on the server
+    // Likes are managed client-side via LikedVideosProvider
+    return NextResponse.json({ error: 'Use LikedVideosContext on client-side' }, { status: 400 });
   } catch (error) {
     console.error("Error fetching liked videos:", error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
-// POST /api/likes - Adds a like for a video
+// POST /api/likes - Returns error (likes are stored client-side via context)
 export async function POST(request: Request) {
   try {
-    const { videoId } = await request.json();
-    if (!videoId || typeof videoId !== 'string') {
-      return NextResponse.json({ error: 'Missing or invalid videoId' }, { status: 400 });
-    }
-
-    const likedVideos = getLikedVideosFromStorage();
-    if (!likedVideos.includes(videoId)) {
-      likedVideos.push(videoId);
-      saveLikedVideosToStorage(likedVideos);
-    }
-
-    return NextResponse.json({ success: true }, { status: 201 });
+    // localStorage is not available on the server
+    // Likes are managed client-side via LikedVideosProvider
+    return NextResponse.json({ error: 'Use LikedVideosContext on client-side' }, { status: 400 });
   } catch (error) {
     console.error("Error adding like:", error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
-// DELETE /api/likes - Removes a like for a video
+// DELETE /api/likes - Returns error (likes are stored client-side via context)
 export async function DELETE(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const videoId = searchParams.get('videoId');
-
-    if (!videoId || typeof videoId !== 'string') {
-      return NextResponse.json({ error: 'Missing or invalid videoId query parameter' }, { status: 400 });
-    }
-
-    const likedVideos = getLikedVideosFromStorage();
-    const updatedLikedVideos = likedVideos.filter(id => id !== videoId);
-    saveLikedVideosToStorage(updatedLikedVideos);
-
-    return NextResponse.json({ success: true });
+    // localStorage is not available on the server
+    // Likes are managed client-side via LikedVideosProvider
+    return NextResponse.json({ error: 'Use LikedVideosContext on client-side' }, { status: 400 });
   } catch (error) {
     console.error("Error removing like:", error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

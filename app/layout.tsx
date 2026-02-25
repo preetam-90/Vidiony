@@ -1,6 +1,4 @@
 import type { Metadata, Viewport } from "next"
-import { StackProvider, StackTheme } from "@stackframe/stack";
-import { stackServerApp } from "../stack";
 import type { PropsWithChildren } from "react"
 import "./globals.css"
 import { Inter } from "next/font/google"
@@ -11,7 +9,7 @@ import { Fragment } from "react"
 import { Analytics } from "@vercel/analytics/react"
 import Script from "next/script"
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ["latin"],
   display: 'swap',
   preload: true,
@@ -133,7 +131,7 @@ export const metadata: Metadata = {
 }
 
 export default async function RootLayout({ children }: PropsWithChildren) {
-  
+
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -173,13 +171,13 @@ export default async function RootLayout({ children }: PropsWithChildren) {
           defer
         />
       </head>
-      <body className={inter.className}><StackProvider app={stackServerApp}><StackTheme>
+      <body className={inter.className}>
         <Providers>
           <ServiceWorkerRegistration />
           <ClientLayout>{children}</ClientLayout>
           <Analytics />
         </Providers>
-      </StackTheme></StackProvider></body>
+      </body>
     </html>
   )
 }

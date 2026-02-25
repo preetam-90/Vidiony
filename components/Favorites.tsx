@@ -174,7 +174,13 @@ export default function Favorites() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
+
+  // Set client flag on mount
+  useEffect(() => {
+    setIsClient(true)
+  }, []);
 
   // Check scroll position to show/hide arrows
   const checkScrollButtons = () => {
@@ -312,6 +318,7 @@ export default function Favorites() {
   };
 
   const handleReport = async (videoId: string, reason: string) => {
+    if (!isClient) return
     try {
       const reportedVideos: ReportedVideo[] = JSON.parse(localStorage.getItem("reportedVideos") || "[]");
       

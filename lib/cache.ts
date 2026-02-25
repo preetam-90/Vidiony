@@ -9,7 +9,7 @@ export const getCachedData = cache(async (key: string) => {
 // Client-side caching using localStorage
 export const clientCache = {
   set: (key: string, data: any) => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
       try {
         localStorage.setItem(key, JSON.stringify(data));
       } catch (error) {
@@ -19,7 +19,7 @@ export const clientCache = {
   },
 
   get: (key: string) => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
       try {
         const data = localStorage.getItem(key);
         return data ? JSON.parse(data) : null;
@@ -32,7 +32,7 @@ export const clientCache = {
   },
 
   remove: (key: string) => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && typeof localStorage.removeItem === 'function') {
       try {
         localStorage.removeItem(key);
       } catch (error) {
@@ -42,7 +42,7 @@ export const clientCache = {
   },
 
   clear: () => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && typeof localStorage.clear === 'function') {
       try {
         localStorage.clear();
       } catch (error) {

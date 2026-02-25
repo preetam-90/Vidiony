@@ -1,3 +1,4 @@
+"use client"
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -51,12 +52,18 @@ export default function ImmersiveShortsPlayer({
   const [showInfo, setShowInfo] = useState(false);
   const [liked, setLiked] = useState<{[key: string]: boolean}>({});
   const [saved, setSaved] = useState<{[key: string]: boolean}>({});
+  const [isClient, setIsClient] = useState(false);
   
   const videoRefs = useRef<{[key: string]: HTMLVideoElement | null}>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const progressInterval = useRef<NodeJS.Timeout | null>(null);
 
   const currentVideo = videos[currentIndex];
+
+  // Set client flag on mount
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // Handle autoplay and video switching
   useEffect(() => {
@@ -136,7 +143,7 @@ export default function ImmersiveShortsPlayer({
 
   // Add video to watch history when it changes
   useEffect(() => {
-    if (!currentVideo) return;
+    if (!currentVideo || !isClient) return;
     
     const addToHistory = () => {
       try {
@@ -156,7 +163,7 @@ export default function ImmersiveShortsPlayer({
     };
     
     addToHistory();
-  }, [currentVideo]);
+  }, [currentVideo, isClient]);
 
   // Handle keyboard navigation
   useEffect(() => {

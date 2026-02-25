@@ -1,3 +1,4 @@
+"use client"
 import { Video } from '@/data'
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import Image from 'next/image'

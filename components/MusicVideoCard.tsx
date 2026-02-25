@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MusicVideoOptionsDropdown } from '../app/music/components/MusicVideoOptionsDropdown';
 import SharePopup from '@/components/share-popup';
 import { ReportDialog } from '@/components/report-dialog';
@@ -22,7 +22,13 @@ const MusicVideoCard = ({ title, thumbnail, artist, views, videoId, onClick }: M
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
+
+  // Set client flag on mount
+  useEffect(() => {
+    setIsClient(true)
+  }, []);
 
   return (
     <>
@@ -82,6 +88,7 @@ const MusicVideoCard = ({ title, thumbnail, artist, views, videoId, onClick }: M
             });
             setIsReportOpen(false);
             
+            if (!isClient) return
             try {
               const reportedVideos = JSON.parse(localStorage.getItem("reportedVideos") || "[]") as string[];
               if (!reportedVideos.includes(videoId)) {
@@ -106,6 +113,7 @@ const MusicVideoCard = ({ title, thumbnail, artist, views, videoId, onClick }: M
             });
             setIsFeedbackOpen(false);
             
+            if (!isClient) return
             try {
               const hiddenVideos = JSON.parse(localStorage.getItem("hiddenVideos") || "[]") as string[];
               if (!hiddenVideos.includes(videoId)) {

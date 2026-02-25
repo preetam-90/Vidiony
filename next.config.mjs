@@ -1,43 +1,37 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Enable static page generation for faster loading
-  output: 'export',
-
   // Enable image optimization
   images: {
-    domains: ['image.tmdb.org', 'i.ytimg.com', 'yt3.ggpht.com', 'lh3.googleusercontent.com', 'img.youtube.com', 'content.stack-auth.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'image.tmdb.org',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.ytimg.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'yt3.ggpht.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.youtube.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'content.stack-auth.com',
+      },
+    ],
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    unoptimized: true,
   },
-
-  // Enable experimental features for better performance
-  experimental: {
-    // Enable server components
-    serverComponents: true,
-    // Enable concurrent features
-    concurrentFeatures: true,
-    // Enable React server components
-    serverActions: true,
-    // Enable optimizing CSS
-    optimizeCss: true,
-    // Enable modern JavaScript features
-    esmExternals: true,
-    // Enable HTTP/2 Push
-    http2Push: true,
-    // Enable granular chunks
-    granularChunks: true,
-    // Enable optimizing fonts
-    optimizeFonts: true,
-    // Enable modern build output
-    modern: true,
-    // Enable scroll restoration
-    scrollRestoration: true,
-  },
-
-  // Enable compression
-  compress: true,
 
   // Enable React strict mode
   reactStrictMode: true,

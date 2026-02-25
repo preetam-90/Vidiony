@@ -1,3 +1,4 @@
+"use client"
 import { MoreVertical, Share, Clock, Ban, Flag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {

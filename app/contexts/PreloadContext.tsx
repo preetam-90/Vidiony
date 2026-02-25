@@ -16,15 +16,14 @@ const PreloadContext = createContext<PreloadContextType>({
 // Routes to preload
 const routesToPreload = [
   '/trending',
-  '/explore',
   '/music',
   '/tmdb-movies',
-  '/shorts',
+  '/immersive-shorts',
   '/liked-videos',
   '/history',
   '/watch-later',
   '/category/gaming',
-  '/category/programming-patterns',
+  '/category/programming',
   '/category/education',
   // Add other important routes here
 ];

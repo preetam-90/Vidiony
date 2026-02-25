@@ -1,4 +1,4 @@
 {
     "zencoder.enableRepoIndexing": true,
-    "chat.mcp.enabled": true
+    "chat.mcp.access": "all"
 }

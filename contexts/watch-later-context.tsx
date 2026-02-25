@@ -15,41 +15,63 @@ const WatchLaterContext = createContext<WatchLaterContextType | undefined>(undef
 
 export function WatchLaterProvider({ children }: { children: React.ReactNode }) {
   const [watchLaterVideos, setWatchLaterVideos] = useState<Video[]>([])
+  const [isClient, setIsClient] = useState(false)
+
+  // Set client flag on mount
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // Load watch later videos from localStorage on mount
   useEffect(() => {
-    const savedVideos = localStorage.getItem("watchLater")
-    if (savedVideos) {
-      try {
+    if (!isClient) return
+    try {
+      const savedVideos = localStorage.getItem("watchLater")
+      if (savedVideos) {
         const parsedVideos = JSON.parse(savedVideos)
         setWatchLaterVideos(Array.isArray(parsedVideos) ? parsedVideos : [])
-      } catch (error) {
-        console.error("Error loading watch later videos:", error)
-        setWatchLaterVideos([])
       }
+    } catch (error) {
+      console.error("Error loading watch later videos:", error)
+      setWatchLaterVideos([])
     }
-  }, [])
+  }, [isClient])
 
   // Save to localStorage whenever watchLaterVideos changes
   useEffect(() => {
-    localStorage.setItem("watchLater", JSON.stringify(watchLaterVideos))
-  }, [watchLaterVideos])
+    if (!isClient) return
+    try {
+      localStorage.setItem("watchLater", JSON.stringify(watchLaterVideos))
+    } catch (error) {
+      console.error("Error saving watch later videos:", error)
+    }
+  }, [watchLaterVideos, isClient])
 
   const addToWatchLater = (video: Video) => {
+    if (!isClient) return
     setWatchLaterVideos(prev => {
       if (prev.some(v => v.id === video.id)) {
         return prev
       }
       const newList = [video, ...prev]
-      localStorage.setItem("watchLater", JSON.stringify(newList))
+      try {
+        localStorage.setItem("watchLater", JSON.stringify(newList))
+      } catch (error) {
+        console.error("Error saving watch later video:", error)
+      }
       return newList
     })
   }
 
   const removeFromWatchLater = (videoId: string | number) => {
+    if (!isClient) return
     setWatchLaterVideos(prev => {
       const newList = prev.filter(video => video.id !== videoId)
-      localStorage.setItem("watchLater", JSON.stringify(newList))
+      try {
+        localStorage.setItem("watchLater", JSON.stringify(newList))
+      } catch (error) {
+        console.error("Error removing watch later video:", error)
+      }
       return newList
     })
   }
@@ -59,8 +81,13 @@ export function WatchLaterProvider({ children }: { children: React.ReactNode }) 
   }
 
   const updateWatchLaterOrder = (newOrder: Video[]) => {
+    if (!isClient) return
     setWatchLaterVideos(newOrder)
-    localStorage.setItem("watchLater", JSON.stringify(newOrder))
+    try {
+      localStorage.setItem("watchLater", JSON.stringify(newOrder))
+    } catch (error) {
+      console.error("Error updating watch later order:", error)
+    }
   }
 
   return (

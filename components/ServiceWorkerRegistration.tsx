@@ -14,6 +14,25 @@ interface ServiceWorkerEvent extends Event {
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
+    // Service workers aggressively cache and frequently break Next.js dev
+    // (stale JS chunks -> client-side exceptions / blank screens).
+    // In development, proactively unregister any existing SW and skip registration.
+    if (process.env.NODE_ENV !== 'production') {
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations()
+          .then((regs) => Promise.all(regs.map((r) => r.unregister())))
+          .catch(() => {});
+
+        // Best-effort cache cleanup to avoid serving stale HTML/chunks.
+        if ('caches' in window) {
+          caches.keys()
+            .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+            .catch(() => {});
+        }
+      }
+      return;
+    }
+
     if (
       typeof window !== 'undefined' &&
       'serviceWorker' in navigator &&

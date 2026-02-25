@@ -41,11 +41,19 @@ export default function VideoCard({ video, layout = "grid", context, onRemoveFro
   const [isJustHidden, setIsJustHidden] = useState(false)
   const [isReported, setIsReported] = useState(false)
   const [isJustReported, setIsJustReported] = useState(false)
+  const [isClient, setIsClient] = useState(false)
   const { addToWatchLater, removeFromWatchLater, isInWatchLater } = useWatchLater()
   const { isLiked, removeFromLiked, addToLiked } = useLikedVideos()
   const { toast } = useToast()
 
+  // Set client flag on mount
   useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  // Load hidden/reported status from localStorage on mount
+  useEffect(() => {
+    if (!isClient) return
     try {
       const hiddenVideos = JSON.parse(localStorage.getItem("hiddenVideos") || "[]") as string[]
       const reportedVideos = JSON.parse(localStorage.getItem("reportedVideos") || "[]") as string[]
@@ -54,7 +62,7 @@ export default function VideoCard({ video, layout = "grid", context, onRemoveFro
     } catch (error) {
       console.error('Error checking video status:', error)
     }
-  }, [video?.id])
+  }, [video?.id, isClient])
 
   const handleWatchLater = () => {
     if (!video) return

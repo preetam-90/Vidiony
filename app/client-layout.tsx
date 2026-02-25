@@ -11,7 +11,7 @@ import dynamic from "next/dynamic"
 
 // Dynamically import components with loading states
 const Navbar = dynamic(() => import("@/components/navbar"), {
-  ssr: true,
+  ssr: false,
   loading: () => <div className="h-16 w-full bg-background border-b animate-pulse" />
 })
 
@@ -35,13 +35,21 @@ function LayoutContent({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  
+
   const isMoviesPage = pathname === "/category/movies" || pathname.startsWith("/category/movies/")
   const isWatchPage = pathname === "/watch" || pathname.startsWith("/watch/")
 
   // Prefetch common routes
   useEffect(() => {
-    const commonRoutes = ['/home', '/trending', '/explore', '/shorts', '/explore?category=all']
+    // Keep this list limited to routes that actually exist.
+    const commonRoutes = [
+      '/home',
+      '/trending',
+      '/featured',
+      '/music',
+      '/tmdb-movies',
+      '/immersive-shorts',
+    ]
     commonRoutes.forEach(route => {
       router.prefetch(route)
     })
@@ -56,7 +64,7 @@ function LayoutContent({
       document.body.classList.remove('watch-page-active')
       document.documentElement.classList.remove('watch-page-active')
     }
-    
+
     return () => {
       document.body.classList.remove('watch-page-active')
       document.documentElement.classList.remove('watch-page-active')
@@ -66,7 +74,7 @@ function LayoutContent({
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(prev => !prev)
   }
-  
+
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false)
   }
@@ -124,6 +132,24 @@ export default function ClientLayout({
 }: {
   children: React.ReactNode
 }) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <div className="h-16 w-full bg-background border-b" />
+        <div className="flex flex-1 pt-16">
+          <div className="w-64 h-full bg-background border-r" />
+          <main className="flex-1 overflow-auto" />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <ThemeProvider
       attribute="class"

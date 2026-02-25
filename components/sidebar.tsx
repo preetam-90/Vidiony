@@ -62,7 +62,7 @@ interface SidebarItem {
 }
 
 const mainItems: SidebarItem[] = [
-  { icon: Home, label: "Home", href: "/" },
+  { icon: Home, label: "Home", href: "/home" },
   { icon: Sparkles, label: "Featured", href: "/featured" },
   { icon: TrendingUp, label: "Trending", href: "/trending" },
   { icon: Music, label: "Music", href: "/music" },
@@ -102,25 +102,36 @@ export default function Sidebar({
   const [notifications, setNotifications] = useState(3)
   const [customCategories, setCustomCategories] = useState<SidebarItem[]>([])
   const [pinned, setPinned] = useState<SidebarItem[]>([])
+  const [isClient, setIsClient] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
   
+  // Set client flag on mount
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
   // Load saved state after mount
   useEffect(() => {
-    // For movies page (shouldOverlay=true), we always keep it collapsed and don't load saved state
-    if (!shouldOverlay) {
+    if (!isClient || shouldOverlay) return
+    try {
       const savedState = localStorage.getItem("sidebarCollapsed")
       if (savedState !== null) {
         setIsCollapsed(savedState === "true")
       }
+    } catch (error) {
+      console.error("Error loading sidebar state:", error)
     }
-  }, [shouldOverlay]);
+  }, [isClient, shouldOverlay]);
 
   // Save collapsed state in localStorage
   useEffect(() => {
-    if (!shouldOverlay) {
+    if (!isClient || shouldOverlay) return
+    try {
       localStorage.setItem("sidebarCollapsed", String(isCollapsed))
+    } catch (error) {
+      console.error("Error saving sidebar state:", error)
     }
-  }, [isCollapsed, shouldOverlay])
+  }, [isCollapsed, shouldOverlay, isClient])
 
   // Close mobile menu when route changes
   useEffect(() => {

@@ -4,17 +4,16 @@ import { useRouter } from 'next/navigation';
 // List of all routes that should be preloaded
 const routesToPreload = [
   '/trending',
-  '/explore',
   '/music',
   '/tmdb-movies',
-  '/shorts',
+  '/immersive-shorts',
   '/liked-videos',
   '/history',
   '/watch-later',
   // Add category routes
   '/category/gaming',
   '/category/flowcharts',
-  '/category/programming-patterns',
+  '/category/programming',
   // Add other category routes as needed
 ];
 

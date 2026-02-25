@@ -14,11 +14,11 @@ interface LinkItem {
 
 // Main navigation pages 
 const mainPages: LinkItem[] = [
-  { name: 'All', path: '/' },
+  { name: 'All', path: '/home' },
   { name: 'Trending', path: '/trending' },
   { name: 'Music', path: '/music' },
   { name: 'Movies', path: '/tmdb-movies' },
-  { name: 'Shorts', path: '/shorts' },
+  { name: 'Shorts', path: '/immersive-shorts' },
   { name: 'Liked Videos', path: '/liked-videos' },
   { name: 'History', path: '/history' },
   { name: 'Watch Later', path: '/watch-later' },

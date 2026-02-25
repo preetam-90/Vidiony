@@ -24,10 +24,16 @@ export default function VideoPlayer({ video, onEnded }: VideoPlayerProps) {
   const [duration, setDuration] = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [savedToHistory, setSavedToHistory] = useState(false)
+  const [isClient, setIsClient] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const { addToLiked, removeFromLiked, isLiked } = useLikedVideos()
   const { toast } = useToast()
+
+  // Set client flag on mount
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // Handle video URL based on platform
   const getVideoSource = () => {
@@ -75,7 +81,7 @@ export default function VideoPlayer({ video, onEnded }: VideoPlayerProps) {
 
   // Save video to watch history
   const saveToWatchHistory = () => {
-    if (savedToHistory) return;
+    if (!isClient || savedToHistory) return;
     
     try {
       // Get existing history

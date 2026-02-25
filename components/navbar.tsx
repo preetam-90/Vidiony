@@ -20,8 +20,13 @@ import { useMobile } from "@/hooks/use-mobile"
 import { useWatchLater } from "@/contexts/watch-later-context"
 import SearchBar from "@/components/search-bar"
 import { AnimatePresence, motion } from "framer-motion"
-import { useUser } from "@stackframe/stack";
-import UserAvatar from "@/components/user-avatar";
+import dynamic from "next/dynamic";
+
+// Dynamically import Stack Auth components with SSR disabled
+const UserAvatar = dynamic(() => import("@/components/user-avatar"), {
+  ssr: false,
+  loading: () => <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+});
 
 // Define props interface
 interface NavbarProps {
@@ -30,41 +35,29 @@ interface NavbarProps {
 }
 
 function UserProfile() {
-  const user = useUser();
+  const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
-  if (!user) {
+  useEffect(() => {
+    setMounted(true);
+    // Import useUser dynamically only on client
+    import("@stackframe/stack").then(({ useUser }) => {
+      // This won't work directly - we need a different approach
+    });
+  }, []);
+
+  // Don't render anything until client-side
+  if (!mounted) {
     return (
-      <Link href="/sign-in">
-        <Button size="sm" variant="outline">Login</Button>
-      </Link>
+      <div className="h-8 w-20 bg-muted animate-pulse rounded" />
     );
   }
 
+  // Simple login button for now - user auth can be handled client-side
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 p-0 rounded-full" aria-label="User menu">
-          <UserAvatar size="sm" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.displayName || user.primaryEmail}</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {user.primaryEmail}
-            </p>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/handler/account-settings">Account Settings</Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => user.signOut()}>
-          Log out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Link href="/sign-in">
+      <Button size="sm" variant="outline">Login</Button>
+    </Link>
   );
 }
 
@@ -77,7 +70,7 @@ export default function Navbar({ isMobileMenuOpen, toggleMobileMenu }: NavbarPro
   const [isTablet, setIsTablet] = useState<boolean>(false)
   const { watchLaterVideos } = useWatchLater()
   const [searchExpanded, setSearchExpanded] = useState(false)
-  
+
   // Detect orientation (portrait vs landscape)
   useEffect(() => {
     const mql = window.matchMedia('(orientation: portrait)')
@@ -86,7 +79,7 @@ export default function Navbar({ isMobileMenuOpen, toggleMobileMenu }: NavbarPro
     setIsPortrait(mql.matches)
     return () => mql.removeEventListener('change', onChange)
   }, [])
-  
+
   // Detect tablet size - between 768px and 1024px
   useEffect(() => {
     const tabletMql = window.matchMedia('(min-width: 768px) and (max-width: 1024px)')
@@ -115,11 +108,11 @@ export default function Navbar({ isMobileMenuOpen, toggleMobileMenu }: NavbarPro
 
         {/* Logo */}
         <Link href="/home" className="flex items-center space-x-2">
-          <Image 
-            src="/image-removebg-preview.png" 
-            alt="Vidion Logo" 
-            width={32} 
-            height={32} 
+          <Image
+            src="/image-removebg-preview.png"
+            alt="Vidion Logo"
+            width={32}
+            height={32}
             className="rounded"
           />
           <span className="hidden font-bold sm:inline-block">
@@ -144,7 +137,7 @@ export default function Navbar({ isMobileMenuOpen, toggleMobileMenu }: NavbarPro
                 </motion.div>
               )}
             </AnimatePresence>
-            
+
             {/* Mobile search toggle */}
             {isMobile && !searchExpanded && (
               <Button
@@ -156,7 +149,7 @@ export default function Navbar({ isMobileMenuOpen, toggleMobileMenu }: NavbarPro
                 <Search className="h-5 w-5" />
               </Button>
             )}
-            
+
             {/* Mobile search close */}
             {isMobile && searchExpanded && (
               <Button

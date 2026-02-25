@@ -5,6 +5,7 @@
 
 const { execSync, spawn } = require('child_process');
 const os = require('os');
+const path = require('path');
 
 // Determine if we're running in clean mode (kill all Node processes)
 const cleanMode = process.argv.includes('clean');
@@ -133,10 +134,12 @@ try {
   // Start Next.js development server
   console.log('🚀 Starting Next.js development server...');
   
-  // Use spawn to keep the process running and inherit stdio
-  const nextProcess = spawn('next', ['dev', '-p', '3000'], { 
-    stdio: 'inherit',
-    shell: true
+  // Use spawn without a shell; preload a Node webstorage polyfill.
+  // This avoids crashes on Node versions that expose an uninitialized global `localStorage`.
+  const nextBin = require.resolve('next/dist/bin/next');
+  const preload = path.join(__dirname, 'scripts', 'node-webstorage-polyfill.cjs');
+  const nextProcess = spawn(process.execPath, ['-r', preload, nextBin, 'dev', '-p', '3000'], {
+    stdio: 'inherit'
   });
   
   // Handle process exit

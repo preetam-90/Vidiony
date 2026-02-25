@@ -1,12 +1,22 @@
 "use client"
 import { ThemeProvider as NextThemesProvider } from "next-themes"
+import { useState, useEffect } from "react"
 
-// Use a simpler approach with any props to avoid type issues with different versions
 type ThemeProviderProps = {
   children: React.ReactNode
   [key: string]: any
 }
 
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return <>{children}</>
+  }
+
   return <NextThemesProvider {...props}>{children}</NextThemesProvider>
 }
