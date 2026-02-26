@@ -11,6 +11,8 @@ import type { Video } from "@/data"
 import React, { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 
+const PEERTUBE_INSTANCE = 'https://framatube.org'
+
 // Convert TMDB movie to Video format
 const convertTMDBMovieToVideo = (movie: any): Video => ({
   id: `tmdb-${movie.id}`,
@@ -27,6 +29,57 @@ const convertTMDBMovieToVideo = (movie: any): Video => ({
   url: `/tmdb-movies/${movie.id}`,
   duration: movie.release_date ? new Date(movie.release_date).getFullYear().toString() : 'N/A'
 })
+
+// Convert PeerTube video to Video format
+const convertPeerTubeVideoToVideo = (video: any): Video => {
+  const thumbnail = video.thumbnailUrl || video.previewUrl || 
+    (video.thumbnailPath ? `${PEERTUBE_INSTANCE}${video.thumbnailPath}` : null) ||
+    (video.previewPath ? `${PEERTUBE_INSTANCE}${video.previewPath}` : null);
+  
+  return {
+    id: `peertube-${video.uuid}`,
+    title: video.name,
+    description: video.description || '',
+    thumbnail: thumbnail || '/images/placeholder-poster.jpg',
+    uploader: video.channel?.displayName || video.account?.displayName || 'PeerTube',
+    views: video.views || 0,
+    likes: video.likes || 0,
+    comments: video.comments || 0,
+    uploadDate: video.publishedAt || '',
+    platform: 'PeerTube',
+    category: 'Videos',
+    url: `/peertube/${video.uuid}?instance=${encodeURIComponent(PEERTUBE_INSTANCE)}`,
+    duration: video.duration ? formatDuration(video.duration) : '0:00'
+  };
+}
+
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Search PeerTube videos
+async function searchPeerTubeVideos(searchTerm: string): Promise<Video[]> {
+  try {
+    const res = await fetch(
+      `${PEERTUBE_INSTANCE}/api/v1/search/videos?search=${encodeURIComponent(searchTerm)}&limit=3`,
+      { headers: { 'Accept': 'application/json' } }
+    );
+    
+    if (!res.ok) return [];
+    
+    const data = await res.json();
+    return (data.data || []).map(convertPeerTubeVideoToVideo);
+  } catch (err) {
+    console.error("PeerTube search error:", err);
+    return [];
+  }
+}
 
 // Add closeSearchBar prop
 interface ModernSearchBarProps {
@@ -95,6 +148,16 @@ const ModernSearchBar = ({ closeSearchBar }: ModernSearchBarProps) => {
           setError("Couldn't fetch online results")
         }
       }
+      
+      // Fetch PeerTube results
+      try {
+        const peertubeResults = await searchPeerTubeVideos(searchTerm)
+        if (peertubeResults.length > 0) {
+          setSuggestions(prev => [...prev, ...peertubeResults])
+        }
+      } catch (err) {
+        console.error("PeerTube API error:", err)
+      }
     } catch (err) {
       console.error("Search error:", err)
       setError("Search failed")
@@ -132,6 +195,9 @@ const ModernSearchBar = ({ closeSearchBar }: ModernSearchBarProps) => {
     if (String(video.id).startsWith('tmdb-')) {
       const tmdbId = String(video.id).replace('tmdb-', '');
       router.push(`/tmdb-movies/${tmdbId}`);
+    } else if (String(video.id).startsWith('peertube-')) {
+      const videoId = String(video.id).replace('peertube-', '');
+      router.push(`/peertube/${videoId}?instance=${encodeURIComponent(PEERTUBE_INSTANCE)}`);
     } else if (String(video.id).startsWith('local-')) {
       const videoId = String(video.id).replace('local-', '');
       router.push(`/video/${videoId}`);

@@ -248,11 +248,37 @@ export default function VideoCard({ video, layout = "grid", context, onRemoveFro
   }
 
   const videoId = video?.id ? String(video.id).replace('local-', '') : ''
+  const getVideoUrl = () => {
+    if (video?.url) return video.url
+    return `/video/${videoId}`
+  }
+
+  const getShareUrl = () => {
+    const url = getVideoUrl()
+    if (typeof window === 'undefined') return url
+    if (url.startsWith('http')) return url
+    return `${window.location.origin}${url}`
+  }
   const thumbnailUrl = video?.thumbnail && video.thumbnail.trim() !== "" ? video.thumbnail : "/placeholder.svg?height=240&width=400"
   const isGoogleDrive = video?.thumbnail?.startsWith("https://drive.google.com") ?? false
 
   if (!video) {
     return null;
+  }
+
+  const handleCardNavigation = () => {
+    const url = video?.url ?? ""
+    if (url.startsWith("/peertube/")) {
+      router.push(url)
+      return
+    }
+
+    if (url.startsWith("http")) {
+      window.location.href = url
+      return
+    }
+
+    router.push(`/video/${videoId}`)
   }
 
   const videoCardContent = (
@@ -285,8 +311,8 @@ export default function VideoCard({ video, layout = "grid", context, onRemoveFro
   return (
     <>
       {layout === "list" ? (
-        <div className="flex gap-4 hover:bg-accent/10 p-2 rounded-lg transition-colors cursor-pointer" onClick={() => onClick && onClick()}>
-          <Link href={`/video/${videoId}`} className="aspect-video w-40 relative rounded-md overflow-hidden flex-shrink-0" onClick={(e) => onClick && e.preventDefault()}>
+        <div className="flex gap-4 hover:bg-accent/10 p-2 rounded-lg transition-colors cursor-pointer" onClick={() => onClick ? onClick() : handleCardNavigation()}>
+          <Link href={getVideoUrl()} className="aspect-video w-40 relative rounded-md overflow-hidden flex-shrink-0" onClick={(e) => onClick && e.preventDefault()}>
             {videoCardContent}
           </Link>
           <div className="flex-1 min-w-0">
@@ -344,9 +370,9 @@ export default function VideoCard({ video, layout = "grid", context, onRemoveFro
         </div>
       ) : (
         <div className="group w-full overflow-hidden rounded-lg border border-border/30 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer bg-card"
-          onClick={() => onClick ? onClick() : router.push(`/video/${videoId}`)}
+          onClick={() => onClick ? onClick() : handleCardNavigation()}
         >
-          <Link href={`/video/${videoId}`} onClick={(e) => onClick && e.preventDefault()}>
+          <Link href={getVideoUrl()} onClick={(e) => onClick && e.preventDefault()}>
             {videoCardContent}
           </Link>
           <div className="p-2.5 sm:p-3">
@@ -377,12 +403,12 @@ export default function VideoCard({ video, layout = "grid", context, onRemoveFro
         </div>
       )}
 
-      <SharePopup 
-        isOpen={isShareOpen} 
-        onClose={() => setIsShareOpen(false)} 
-        url={`${typeof window !== 'undefined' ? window.location.origin : ''}/video/${videoId}`}
-        title={video?.title || ''}
-      />
+        <SharePopup 
+          isOpen={isShareOpen} 
+          onClose={() => setIsShareOpen(false)} 
+          url={getShareUrl()}
+          title={video?.title || ''}
+        />
       <ReportDialog 
         isOpen={isReportOpen} 
         onClose={() => setIsReportOpen(false)}

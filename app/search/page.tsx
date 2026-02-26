@@ -6,9 +6,41 @@ import { videos } from "@/data"
 import SearchResults from "@/components/search-results"
 import { searchVideos, convertYouTubeVideoToVideo } from "@/lib/youtube-api"
 import type { Video } from "@/data"
-import { Loader2, Youtube } from "lucide-react"
+import { Loader2, Youtube, Globe } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
+const PEERTUBE_SEARCH_API = "/api/peertube/search"
+
+const parseNumericValue = (value: string | number) => {
+  if (typeof value === "string") {
+    const cleanValue = value.replace(/[^0-9.]/g, "")
+    return Number.parseFloat(cleanValue) || 0
+  }
+  return value || 0
+}
+
+const sortVideos = (videos: Video[], sortOption: string) => {
+  if (sortOption === "relevance") {
+    return videos
+  }
+
+  const sorted = [...videos]
+
+  switch (sortOption) {
+    case "date":
+      return sorted.sort((a, b) => {
+        const dateA = new Date(a.uploadDate).getTime()
+        const dateB = new Date(b.uploadDate).getTime()
+        return dateB - dateA
+      })
+    case "views":
+      return sorted.sort((a, b) => parseNumericValue(b.views) - parseNumericValue(a.views))
+    case "rating":
+      return sorted.sort((a, b) => parseNumericValue(b.likes) - parseNumericValue(a.likes))
+    default:
+      return videos
+  }
+}
 export default function SearchPage() {
   const searchParams = useSearchParams()
   const query = searchParams.get("q") || ""
@@ -19,10 +51,44 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showYouTube, setShowYouTube] = useState(false)
+  const [showPeerTube, setShowPeerTube] = useState(false)
   const [youtubeResults, setYoutubeResults] = useState<Video[]>([])
+  const [peertubeResults, setPeerTubeResults] = useState<Video[]>([])
   const [localResults, setLocalResults] = useState<Video[]>([])
   const [loadingYoutube, setLoadingYoutube] = useState(false)
-  const [autoShowedYoutube, setAutoShowedYoutube] = useState(false)
+  const [loadingPeerTube, setLoadingPeerTube] = useState(false)
+
+  const combineResults = (options?: {
+    includeYouTube?: boolean
+    includePeerTube?: boolean
+  }) => {
+    const includeYouTube = options?.includeYouTube ?? showYouTube
+    const includePeerTube = options?.includePeerTube ?? showPeerTube
+    const combined: Video[] = [...localResults]
+
+    if (includePeerTube && peertubeResults.length > 0) {
+      combined.push(...peertubeResults)
+    }
+
+    if (includeYouTube && youtubeResults.length > 0) {
+      combined.push(...youtubeResults)
+    }
+
+    return combined
+  }
+
+  const refreshFilteredResults = (options?: {
+    sortOption?: string
+    includeYouTube?: boolean
+    includePeerTube?: boolean
+  }) => {
+    const combined = combineResults({
+      includeYouTube: options?.includeYouTube,
+      includePeerTube: options?.includePeerTube,
+    })
+    const sorted = sortVideos(combined, options?.sortOption || sort)
+    setFilteredVideos(sorted)
+  }
 
   useEffect(() => {
     const fetchVideos = async () => {
@@ -46,12 +112,12 @@ export default function SearchPage() {
         // If no local results or very few relevant results, automatically fetch from YouTube
         if (localResults.length === 0 || (localResults.length < 3 && query.length > 2)) {
           setShowYouTube(true)
-          setAutoShowedYoutube(true)
-          await fetchYouTubeResults()
+          setShowPeerTube(true)
+          await Promise.all([fetchYouTubeResults(), fetchPeerTubeResults()])
           return
         }
 
-        setFilteredVideos(localResults)
+        setFilteredVideos(sortVideos(localResults, sort))
       } catch (error) {
         console.error("Error fetching videos:", error)
         setError("An error occurred while fetching videos. Please try again.")
@@ -74,11 +140,7 @@ export default function SearchPage() {
       }
       const results = ytVideos.items.map(convertYouTubeVideoToVideo)
       setYoutubeResults(results)
-      
-      // Combine results if showYouTube is true
-      if (showYouTube) {
-        setFilteredVideos([...localResults, ...results])
-      }
+      refreshFilteredResults()
     } catch (error) {
       console.error("Error searching YouTube videos:", error)
       setError("Failed to fetch YouTube videos. Showing local results only.")
@@ -89,71 +151,55 @@ export default function SearchPage() {
     }
   }
 
-  const handleYouTubeToggle = async () => {
-    const newShowYouTube = !showYouTube
-    setShowYouTube(newShowYouTube)
-    if (newShowYouTube) {
-      if (youtubeResults.length === 0) {
-        await fetchYouTubeResults()
-      } else {
-        setFilteredVideos([...localResults, ...youtubeResults])
+  const fetchPeerTubeResults = async () => {
+    if (!query) return
+
+    setLoadingPeerTube(true)
+
+    try {
+      const res = await fetch(`${PEERTUBE_SEARCH_API}?q=${encodeURIComponent(query)}`)
+
+      if (!res.ok) {
+        throw new Error(`PeerTube proxy responded with status ${res.status}`)
       }
-    } else {
-      setFilteredVideos(localResults)
+
+      const data = await res.json()
+
+      if (Array.isArray(data.videos)) {
+        setPeerTubeResults(data.videos)
+        refreshFilteredResults()
+      } else {
+        setError("Invalid PeerTube proxy response.")
+      }
+    } catch (err) {
+      console.error("PeerTube proxy error", err)
+      setError("Failed to fetch PeerTube results.")
+    }
+
+    setLoadingPeerTube(false)
+  }
+
+  const handleResultsToggle = async (type: "youtube" | "peertube") => {
+    if (type === "youtube") {
+      const newShowYouTube = !showYouTube
+      setShowYouTube(newShowYouTube)
+      if (newShowYouTube && youtubeResults.length === 0) {
+        await fetchYouTubeResults()
+      }
+      refreshFilteredResults({ includeYouTube: newShowYouTube })
+    } else if (type === "peertube") {
+      const newShowPeerTube = !showPeerTube
+      setShowPeerTube(newShowPeerTube)
+      if (newShowPeerTube && peertubeResults.length === 0) {
+        await fetchPeerTubeResults()
+      }
+      refreshFilteredResults({ includePeerTube: newShowPeerTube })
     }
   }
 
   const handleSortChange = (newSort: string) => {
     setSort(newSort)
-    
-    let results = [...filteredVideos]
-    
-    // Helper function to parse numeric values
-    const parseNumericValue = (value: string | number) => {
-      if (typeof value === "string") {
-        // Remove any non-numeric characters (except decimal points)
-        const cleanValue = value.replace(/[^0-9.]/g, '')
-        return Number.parseFloat(cleanValue) || 0
-      }
-      return value || 0
-    }
-    
-    // Sort videos based on the sort parameter
-    switch (newSort) {
-      case "date":
-        results = results.sort((a, b) => {
-          const dateA = new Date(a.uploadDate).getTime()
-          const dateB = new Date(b.uploadDate).getTime()
-          return dateB - dateA // Most recent first
-        })
-        break
-      case "views":
-        results = results.sort((a, b) => {
-          const aViews = parseNumericValue(a.views)
-          const bViews = parseNumericValue(b.views)
-          return bViews - aViews // Most views first
-        })
-        break
-      case "rating":
-        results = results.sort((a, b) => {
-          const aLikes = parseNumericValue(a.likes)
-          const bLikes = parseNumericValue(b.likes)
-          return bLikes - aLikes // Most likes first
-        })
-        break
-      case "relevance":
-        // For relevance, we want local results first, then YouTube results
-        results = [
-          ...localResults,
-          ...youtubeResults.filter(yt => !localResults.some(local => local.id === yt.id))
-        ]
-        break
-      default:
-        // If no valid sort option, maintain current order
-        break
-    }
-
-    setFilteredVideos(results)
+    refreshFilteredResults({ sortOption: newSort })
 
     // Update URL without full page reload
     const url = new URL(window.location.href)
@@ -161,29 +207,39 @@ export default function SearchPage() {
     window.history.pushState({}, "", url.toString())
   }
 
-  // Update useEffect to apply sorting when results change
+  // Keep filtered list in sync when local data changes
   useEffect(() => {
-    if (sort !== "relevance") {
-      handleSortChange(sort)
-    }
-  }, [localResults, youtubeResults])
+    refreshFilteredResults()
+  }, [localResults, youtubeResults, peertubeResults, showYouTube, showPeerTube])
 
   return (
     <div className="container mx-auto px-4 py-6 scrollbar-hide overflow-hidden">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 scrollbar-hide">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold">{query ? `Search results for "${query}"` : "All Videos"}</h1>
-          {query && (localResults.length === 0 || localResults.length > 0) && (
-            <Button
-              variant={showYouTube ? "default" : "outline"}
-              size="sm"
-              onClick={handleYouTubeToggle}
-              disabled={loadingYoutube}
-              className="flex items-center gap-2"
-            >
-              <Youtube className="h-4 w-4" />
-              {showYouTube ? (autoShowedYoutube ? "Hide YouTube Results" : "Hide YouTube Results") : "Show More Results"}
-            </Button>
+          {query && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant={showYouTube ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleResultsToggle("youtube")}
+                disabled={loadingYoutube}
+                className="flex items-center gap-2"
+              >
+                <Youtube className="h-4 w-4" />
+                {showYouTube ? "Hide YouTube" : "Show YouTube"}
+              </Button>
+              <Button
+                variant={showPeerTube ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleResultsToggle("peertube")}
+                disabled={loadingPeerTube}
+                className="flex items-center gap-2"
+              >
+                <Globe className="h-4 w-4" />
+                {showPeerTube ? "Hide PeerTube" : "Show PeerTube"}
+              </Button>
+            </div>
           )}
         </div>
         <div className="flex items-center">

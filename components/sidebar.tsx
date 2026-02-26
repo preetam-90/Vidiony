@@ -30,7 +30,8 @@ import {
   LogOut,
   User,
   Flame,
-  Sparkles
+  Sparkles,
+  Globe
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { 
@@ -66,6 +67,7 @@ const mainItems: SidebarItem[] = [
   { icon: Sparkles, label: "Featured", href: "/featured" },
   { icon: TrendingUp, label: "Trending", href: "/trending" },
   { icon: Music, label: "Music", href: "/music" },
+  { icon: Globe, label: "PeerTube", href: "/peertube", highlight: true },
   { icon: Newspaper, label: "News", href: "/news", highlight: true },
   { icon: Film, label: "TMDB Movies", href: "/tmdb-movies", highlight: true },
 ];
