@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Enable experimental node middleware
+  experimental: {
+    nodeMiddleware: true,
+  },
+
   // Enable image optimization
   images: {
     remotePatterns: [
