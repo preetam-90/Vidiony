@@ -196,7 +196,14 @@ async function fetchWithRotatingKeys(url: string) {
       
       if (response.ok) {
         currentKeyIndex = (keyIndex + 1) % API_KEYS.length // Rotate key for next call
-        return await response.json()
+        const text = await response.text().catch(() => '')
+        if (!text) return null
+        try {
+          return JSON.parse(text)
+        } catch (e) {
+          console.warn(`Failed to parse JSON response for key ${keyIndex}:`, e)
+          return null
+        }
       } else {
         const errorText = await response.text().catch(() => '')
         console.warn(`API key ${keyIndex} failed with status ${response.status}. Error: ${errorText}`)
@@ -382,11 +389,11 @@ export async function GET(request: NextRequest) {
       console.warn('All YouTube API keys have reached quota limits')
       
       return NextResponse.json({ 
-        error: 'YouTube API quota exceeded for all keys. Please try again tomorrow.',
+        error: 'YouTube API quota exceeded for all keys. Please try again later.',
         details: errorMessage,
         quotaExceeded: true,
         videos: [] // Return empty videos array for client to handle
-      }, { status: 200 }) // Return 200 so client can handle gracefully
+      }, { status: 429 }) // Return 429 to indicate rate limit / quota exceeded
     } else if (errorMessage.includes('API key') || errorMessage.includes('quota')) {
       console.warn('YouTube API quota exceeded or key issue')
       

@@ -146,6 +146,38 @@ For detailed information on setting up and managing YouTube API keys, please ref
 pnpm dev
 ```
 
+### Using Bun (optional)
+
+If you prefer to use Bun as the project runtime, Bun is supported and configured in `package.json`.
+
+- Install Bun (follow official installer):
+```bash
+curl -fsSL https://bun.sh/install | bash
+# then restart your shell or follow the installer output
+```
+
+- Install dependencies with Bun (this generates `bun.lockb`):
+```bash
+bun install
+```
+
+- Common Bun commands (equivalents are configured in `package.json`):
+```bash
+# Start the development runner (uses run-dev.js under Bun)
+bun run dev
+
+# Build with Next via bunx
+bunx next build
+
+# Start production
+bunx next start
+
+# Run lint
+bunx next lint
+```
+
+Note: `bunx` executes binaries from the project like `next` using Bun's runner. Using Bun will create `bun.lockb` in the repository; commit it if you want reproducible installs.
+
 ## Usage
 
 1. Start the development server using `pnpm dev`
@@ -164,10 +196,16 @@ Required environment variables:
 
 ## Development
 
-- `pnpm dev`: Start development server
+- `pnpm dev`: Start development server (using pnpm/node)
 - `pnpm build`: Build for production
 - `pnpm start`: Start production server
 - `pnpm lint`: Run linting
+
+If using Bun, the following run targets are available (see the `scripts` section in `package.json`):
+
+- `bun run dev` — Start the development runner (`run-dev.js`) under Bun
+- `bunx next build` — Build the Next.js app using Bun's `bunx`
+- `bunx next start` — Start the production server under Bun
 
 ## License
 

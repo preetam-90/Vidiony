@@ -2,17 +2,19 @@
   "name": "Vidion",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "bun@1",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.0.0",
+    "bun": ">=1.0.0"
   },
   "scripts": {
-    "dev": "node run-dev.js",
-    "dev:force": "node run-dev.js",
-    "dev:clean": "node run-dev.js clean",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "generate-pwa-assets": "node scripts/generate-pwa-assets.js"
+    "dev": "bun ./run-dev.js",
+    "dev:force": "bun ./run-dev.js",
+    "dev:clean": "bun ./run-dev.js clean",
+    "build": "bunx next build",
+    "start": "bunx next start",
+    "lint": "bunx next lint",
+    "generate-pwa-assets": "bun ./scripts/generate-pwa-assets.js"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
