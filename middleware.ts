@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stackServerApp } from "./stack";
 
 export async function middleware(request: NextRequest) {
   // Make the root route a true server-side redirect to avoid relying on
@@ -8,16 +7,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/home", request.url));
   }
 
-  const user = await stackServerApp.getUser({ tokenStore: request });
-
-  if (!user) {
-    return NextResponse.redirect(new URL("/handler/sign-in", request.url));
+  // Dashboard requires authentication - check for session cookie
+  if (request.nextUrl.pathname === "/dashboard") {
+    // Stack Auth uses cookies for session management
+    const hasSession = request.cookies.has("stack-session") || 
+                       request.cookies.has("stack-refresh");
+    
+    if (!hasSession) {
+      return NextResponse.redirect(new URL("/handler/sign-in", request.url));
+    }
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  runtime: "nodejs",
   matcher: ["/", "/dashboard"], // Apply middleware to specific routes
 };
