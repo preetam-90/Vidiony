@@ -1,0 +1,13 @@
+{
+  "name": "vidiony",
+  "private": true,
+  "packageManager": "pnpm@9.1.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter frontend --filter vidion-backend dev",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "pnpm --filter vidion-backend dev",
+    "build": "pnpm --filter frontend build && pnpm --filter vidion-backend build",
+    "lint": "pnpm --filter frontend lint",
+    "install:all": "pnpm install"
+  }
+}

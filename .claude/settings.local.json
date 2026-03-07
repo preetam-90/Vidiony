@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sleep 2 && curl -s \"http://localhost:4000/health\")",
+      "Bash(sleep 2 && curl -s \"http://localhost:4000/api/yt/search?q=hello\" | head -c 200)",
+      "Bash(cd /home/pk/Downloads/Vidiony/backend && npm install isolated-vm)",
+      "Bash(sleep 5 && curl -s -I \"http://localhost:4000/api/yt/stream/QN4-9HGK9AU\" 2>&1 | head -15)",
+      "Bash(sleep 3 && curl -s -w \"\\\\nHTTP Status: %{http_code}\\\\n\" \"http://localhost:4000/api/yt/stream/QN4-9HGK9AU\" | head -c 100)"
+    ]
+  }
+}

@@ -1,0 +1,113 @@
+// Prisma schema for Vidion video platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  username      String    @unique
+  password      String
+  name          String?
+  avatar        String?
+  bio           String?
+  verified      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  videos        Video[]
+  comments      Comment[]
+  likes        Like[]
+  subscriptions Subscription[] @relation("subscribedTo")
+  subscribers   Subscription[] @relation("subscribedBy")
+
+  @@map("users")
+}
+
+model Video {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  thumbnail    String?
+  videoUrl     String
+  duration     Int      @default(0)
+  views        Int      @default(0)
+  visibility   Visibility @default(PUBLIC)
+  category     String?
+  tags         String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  comments     Comment[]
+  likes        Like[]
+
+  @@map("videos")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  videoId   String
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+
+  @@map("comments")
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  type      LikeType
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  videoId   String
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@map("likes")
+}
+
+model Subscription {
+  id             String   @id @default(uuid())
+  createdAt      DateTime @default(now())
+
+  subscriberId   String
+  subscriber     User     @relation("subscribedBy", fields: [subscriberId], references: [id], onDelete: Cascade)
+
+  subscribedToId String
+  subscribedTo   User     @relation("subscribedTo", fields: [subscribedToId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriberId, subscribedToId])
+  @@map("subscriptions")
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+  UNLISTED
+}
+
+enum LikeType {
+  LIKE
+  DISLIKE
+}

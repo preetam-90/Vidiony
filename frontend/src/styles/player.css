@@ -1,0 +1,638 @@
+/* ────────────────────────────────────────────────
+   Vidion Custom Player — player.css
+   ──────────────────────────────────────────────── */
+
+/* Inner controls shell — pointer-events always on so buttons are clickable */
+.vp-controls-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: auto;
+}
+
+/* Container */
+.vp-root {
+  position: relative;
+  width: 100%;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: 'General Sans', system-ui, sans-serif;
+}
+
+.vp-root:focus-visible {
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.5);
+}
+
+/* Aspect ratio shell */
+.vp-aspect {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+/* Native video element */
+.vp-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  will-change: transform;
+  /* hardware acceleration */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* ─── Controls fade in/out ──────────────────── */
+
+.vp-controls-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.vp-controls-layer.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.vp-controls-layer.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Top gradient (title bar) */
+.vp-gradient-top {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 80px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.65) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Bottom gradient */
+.vp-gradient-bottom {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 160px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── Progress bar ──────────────────────────── */
+
+.vp-progress-wrapper {
+  position: relative;
+  width: 100%;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 0 16px;
+  z-index: 1;
+}
+
+.vp-progress-track {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 99px;
+  overflow: hidden;
+  transition: height 0.15s ease;
+}
+
+.vp-progress-wrapper:hover .vp-progress-track {
+  height: 5px;
+}
+
+.vp-progress-buffered {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 99px;
+  transition: width 0.3s linear;
+}
+
+.vp-progress-played {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: #22c55e;
+  border-radius: 99px;
+  transition: width 0.1s linear;
+}
+
+.vp-progress-thumb {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.15s ease;
+  pointer-events: none;
+  box-shadow: 0 0 4px rgba(0,0,0,0.6);
+}
+
+.vp-progress-wrapper:hover .vp-progress-thumb {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* Hover tooltip */
+.vp-progress-tooltip {
+  position: absolute;
+  bottom: 28px;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+  pointer-events: none;
+  letter-spacing: 0.03em;
+}
+
+/* ─── Control bar ───────────────────────────── */
+
+.vp-control-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px 12px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Icon buttons */
+.vp-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  flex-shrink: 0;
+}
+
+.vp-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.vp-btn:active {
+  transform: scale(0.9);
+}
+
+.vp-btn.active {
+  color: #22c55e;
+}
+
+/* Time display */
+.vp-time {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+  padding: 0 4px;
+}
+
+.vp-time-sep {
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0 2px;
+}
+
+/* Spacer */
+.vp-spacer {
+  flex: 1;
+}
+
+/* ─── Volume slider ──────────────────────────── */
+
+.vp-volume-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vp-volume-slider-wrap {
+  width: 0;
+  overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+.vp-volume-group:hover .vp-volume-slider-wrap,
+.vp-volume-slider-wrap:focus-within {
+  width: 72px;
+}
+
+.vp-volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 68px;
+  height: 3px;
+  background: linear-gradient(
+    to right,
+    #22c55e var(--vp-vol, 100%),
+    rgba(255,255,255,0.2) var(--vp-vol, 100%)
+  );
+  border-radius: 99px;
+  outline: none;
+  cursor: pointer;
+}
+
+.vp-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 4px rgba(0,0,0,0.5);
+}
+
+.vp-volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* ─── Popup menus ────────────────────────────── */
+
+.vp-popup {
+  position: absolute;
+  bottom: 56px;
+  right: 12px;
+  min-width: 160px;
+  background: rgba(15, 15, 20, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  z-index: 50;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  animation: vp-popup-in 0.15s ease;
+}
+
+@keyframes vp-popup-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.vp-popup-header {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 10px 14px 4px;
+}
+
+.vp-popup-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  text-align: left;
+}
+
+.vp-popup-item:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.vp-popup-item.active {
+  color: #22c55e;
+}
+
+.vp-popup-item.active .vp-check {
+  opacity: 1;
+}
+
+.vp-check {
+  margin-left: auto;
+  opacity: 0;
+  color: #22c55e;
+}
+
+/* ─── Center action feedback ─────────────────── */
+
+.vp-center-feedback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.vp-feedback-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  animation: vp-feedback-pop 0.5s ease forwards;
+}
+
+@keyframes vp-feedback-pop {
+  0%   { opacity: 0; transform: scale(0.6); }
+  20%  { opacity: 1; transform: scale(1.1); }
+  50%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.9); }
+}
+
+/* ─── Seek flash ─────────────────────────────── */
+
+.vp-seek-flash {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 25%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.vp-seek-flash.left  { left: 0; }
+.vp-seek-flash.right { right: 0; }
+
+.vp-seek-flash.show {
+  animation: vp-seek-anim 0.5s ease forwards;
+}
+
+@keyframes vp-seek-anim {
+  0%   { opacity: 0; }
+  20%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.vp-seek-flash-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 50%;
+  width: 80px;
+  height: 80px;
+  padding-top: 16px;
+}
+
+.vp-seek-flash-inner span {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ─── Spinner / loading ──────────────────────── */
+
+.vp-spinner-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.vp-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(255,255,255,0.15);
+  border-top-color: #22c55e;
+  border-radius: 50%;
+  animation: vp-spin 0.7s linear infinite;
+}
+
+@keyframes vp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Error overlay ──────────────────────────── */
+
+.vp-error-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0,0,0,0.8);
+  z-index: 30;
+  padding: 24px;
+  text-align: center;
+}
+
+.vp-error-overlay h3 {
+  color: #f87171;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.vp-error-overlay p {
+  color: rgba(255,255,255,0.55);
+  font-size: 13px;
+  max-width: 300px;
+}
+
+.vp-retry-btn {
+  margin-top: 4px;
+  padding: 8px 20px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.vp-retry-btn:hover {
+  background: rgba(255,255,255,0.18);
+}
+
+/* ─── Title bar ──────────────────────────────── */
+
+.vp-title-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 14px 16px 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  z-index: 10;
+}
+
+.vp-title-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.95);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  line-clamp: 1;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+}
+
+/* ─── Theater mode ───────────────────────────── */
+
+.vp-theater-container {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.vp-theater-container .vp-root {
+  width: 100%;
+  max-width: 100vw;
+  border-radius: 0;
+}
+
+/* ─── Captions ───────────────────────────────── */
+
+.vp-captions {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  text-align: center;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.vp-caption-cue {
+  display: inline-block;
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  padding: 4px 10px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+}
+
+/* Quality switching toast */
+.vp-quality-toast {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: rgba(15, 15, 20, 0.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  z-index: 40;
+  animation: vp-popup-in 0.2s ease;
+  pointer-events: none;
+}
+
+/* ─── Responsive ─────────────────────────────── */
+
+@media (max-width: 480px) {
+  .vp-btn { width: 30px; height: 30px; }
+  .vp-time { font-size: 10px; }
+  .vp-volume-group:hover .vp-volume-slider-wrap { width: 56px; }
+  .vp-volume-slider { width: 52px; }
+  .vp-popup { min-width: 140px; right: 6px; bottom: 50px; }
+  .vp-title-text { font-size: 12px; }
+}
+
+/* ─── PiP overlay indicator ─────────────────── */
+
+.vp-pip-indicator {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0,0,0,0.8);
+  color: rgba(255,255,255,0.7);
+  font-size: 14px;
+  font-weight: 500;
+  pointer-events: none;
+  z-index: 25;
+}
+
+/* ─── Native WebVTT caption styling (::cue) ─── */
+/* These target the browser's built-in track renderer                         */
+
+.vp-video::cue {
+  background-color: rgba(0, 0, 0, 0.78);
+  color: #ffffff;
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  font-size: 1.05em;
+  font-weight: 500;
+  line-height: 1.4;
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  text-shadow: none;
+}
+
+.vp-video::cue(b)  { font-weight: 700; }
+.vp-video::cue(i)  { font-style: italic; }
+.vp-video::cue(u)  { text-decoration: underline; }
+
+/* Caption active indicator on the CC button */
+.vp-btn[data-captions-on="true"] {
+  color: #22c55e;
+}
