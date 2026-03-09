@@ -72,6 +72,8 @@ export async function buildApp() {
     // Allow streaming/proxy endpoints to bypass global limits
     allowList: (req) => req.url.startsWith('/proxy/') || req.url.startsWith('/live/'),
     skipOnError: true,
+    // If Redis is available, use it as the backend store for rate limiting
+    redis: (app as any).redis ?? undefined,
     keyGenerator: (req: any) => {
       const userId = (req as any).user?.id;
       return userId ? `user:${userId}` : req.ip;
@@ -102,34 +104,52 @@ export async function buildApp() {
 
   // ─── Auth decorators ───────────────────────────────────────────────────────
   app.decorate("authenticate", async function (req: any, reply: any) {
-    try {
-      await req.jwtVerify();
-    } catch {
+    const token = req.cookies?.access_token;
+    if (!token) {
       return reply.status(401).send({
         success: false,
-        error: { code: "UNAUTHORIZED", message: "Missing or invalid Authorization token" },
+        error: { code: "UNAUTHORIZED", message: "Missing access token" },
+      });
+    }
+    try {
+      // verify token and attach payload to req.user
+      const payload = app.jwt.verify(token);
+      req.user = payload;
+    } catch (err) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: "UNAUTHORIZED", message: "Invalid or expired access token" },
       });
     }
   });
 
   app.decorate("optionalAuthenticate", async function (req: any, _reply: any) {
-    const token = req.headers?.authorization;
+    const token = req.cookies?.access_token;
     if (!token) { req.user = null; return; }
     try {
-      await req.jwtVerify();
+      const payload = app.jwt.verify(token);
+      req.user = payload;
     } catch {
       req.user = null;
     }
   });
 
   app.decorate("requireYouTube", async function (req: any, reply: any) {
-    // First ensure JWT is valid
-    try {
-      await req.jwtVerify();
-    } catch {
+    // First ensure JWT is valid (from cookie)
+    const token = req.cookies?.access_token;
+    if (!token) {
       return reply.status(401).send({
         success: false,
         error: { code: "UNAUTHORIZED", message: "Authentication required" },
+      });
+    }
+    try {
+      const payload = app.jwt.verify(token);
+      req.user = payload;
+    } catch (err) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: "UNAUTHORIZED", message: "Invalid or expired access token" },
       });
     }
 

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { getAccessToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -54,8 +53,7 @@ export function LiveChat({ videoId, className }: LiveChatProps) {
     shouldReconnectRef.current = true;
 
     const connect = () => {
-      const token = getAccessToken();
-      const wsUrl = `${WS_BASE}/live/${videoId}/chat${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+      const wsUrl = `${WS_BASE}/live/${videoId}/chat`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
       setStatus("connecting");

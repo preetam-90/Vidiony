@@ -9,17 +9,11 @@
 const API_BASE = "/api/yt";
 const API_V2 = "/api/v2";
 
-// ─── Token storage (client-side only) ─────────────────────────────────────────
-export function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("vidion_token");
-}
-export function setAccessToken(token: string): void {
-  localStorage.setItem("vidion_token", token);
-}
-export function clearAccessToken(): void {
-  localStorage.removeItem("vidion_token");
-}
+// Note: access tokens are stored in HttpOnly cookies set by the backend.
+// Frontend MUST use `credentials: "include"` for authenticated requests.
+export function getAccessToken(): string | null { return null; }
+export function setAccessToken(_token: string): void { /* no-op; tokens are HttpOnly cookies */ }
+export function clearAccessToken(): void { /* no-op */ }
 
 // ─── Core fetcher ──────────────────────────────────────────────────────────────
 async function fetcher<T>(
@@ -28,17 +22,14 @@ async function fetcher<T>(
   init?: RequestInit & { skipAuth?: boolean }
 ): Promise<T> {
   const { skipAuth, ...rest } = init ?? {};
-  const token = skipAuth ? null : getAccessToken();
-
   const hasBody = rest.body !== undefined && rest.body !== null;
   const isFormData = typeof FormData !== "undefined" && rest.body instanceof FormData;
 
   const res = await fetch(`${base}${path}`, {
     ...rest,
-    credentials: "include", // send cookies (refresh token)
+    credentials: "include", // send cookies
     headers: {
       ...(hasBody && !isFormData ? { "Content-Type": "application/json" } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...rest.headers,
     },
   });
@@ -74,19 +65,8 @@ async function tryRefreshToken(): Promise<boolean> {
       method: "POST",
       credentials: "include",
     });
-    if (!res.ok) return false;
-    const data = await res.json();
-    if (data.accessToken) {
-      setAccessToken(data.accessToken);
-      return true;
-    }
-    if (data.token) {
-      setAccessToken(data.token);
-      return true;
-    }
-    return false;
+    return res.ok;
   } catch {
-    clearAccessToken();
     return false;
   }
 }
@@ -364,21 +344,21 @@ export const api = {
 
   auth: {
     register: (body: { email: string; username: string; password: string; name?: string }) =>
-      v2<{ accessToken: string; user: AuthUser }>("/auth/register", {
+      v2<{ user: AuthUser }>("/auth/register", {
         method: "POST",
         body: JSON.stringify(body),
         skipAuth: true,
       }),
 
     login: (body: { email: string; password: string }) =>
-      v2<{ accessToken: string; user: AuthUser }>("/auth/login", {
+      v2<{ user: AuthUser }>("/auth/login", {
         method: "POST",
         body: JSON.stringify(body),
         skipAuth: true,
       }),
 
     refresh: () =>
-      v2<{ accessToken: string }>("/auth/refresh", { method: "POST", skipAuth: true }),
+      v2<{ success: boolean }>("/auth/refresh", { method: "POST", skipAuth: true }),
 
     logout: () =>
       v2<{ success: boolean }>("/auth/logout", { method: "POST" }),
@@ -460,9 +440,6 @@ export const api = {
     } else {
       params.set("quality", quality);
     }
-
-    const token = typeof window !== "undefined" ? getAccessToken() : null;
-    if (token) params.set("token", token);
 
     return `${API_V2}/videos/${id}/download?${params.toString()}`;
   },

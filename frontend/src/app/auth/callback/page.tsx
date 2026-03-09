@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { setAccessToken } from "@/lib/api";
 import { Loader2 } from "lucide-react";
 
 function CallbackHandler() {
@@ -10,18 +9,14 @@ function CallbackHandler() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const token = searchParams.get("token");
     const error = searchParams.get("error");
-
-    if (error || !token) {
-      router.replace(`/auth/login?error=${encodeURIComponent(error ?? "no_token")}`);
+    if (error) {
+      router.replace(`/auth/login?error=${encodeURIComponent(error)}`);
       return;
     }
 
-    // Store the token
-    setAccessToken(token);
-
-    // Full page reload so AuthProvider re-mounts and picks up the token from localStorage
+    // Access token is provided as an HttpOnly cookie by the backend.
+    // Full page reload so AuthProvider re-mounts and picks up the authenticated session.
     const redirect = sessionStorage.getItem("vidion_login_redirect") ?? "/";
     sessionStorage.removeItem("vidion_login_redirect");
     window.location.href = redirect;

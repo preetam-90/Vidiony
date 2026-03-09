@@ -31,107 +31,160 @@ import {
 } from "./auth.service.js";
 
 const REFRESH_COOKIE = "vidion_refresh";
+const ACCESS_COOKIE = "access_token";
+const ACCESS_MAX_AGE_SEC = 15 * 60; // 15 minutes
+const REFRESH_MAX_AGE_SEC = 30 * 86_400; // 30 days
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   // ─── Register ─────────────────────────────────────────────────────────────
-  fastify.post("/register", async (req, reply) => {
-    const parsed = RegisterBodySchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({
-        success: false,
-        error: { code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() },
-      });
+  fastify.post(
+    "/register",
+    {
+      // signup rate limit: 3 requests per minute per IP
+      config: { rateLimit: { max: 3, timeWindow: 60_000 } },
+    },
+    async (req, reply) => {
+      const parsed = RegisterBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() },
+        });
+      }
+
+      try {
+        const user = await registerUser(fastify.prisma, parsed.data);
+        const accessToken = issueAccessToken(fastify, { ...user, youtubeConnected: false });
+        const refreshToken = await issueRefreshToken(fastify.prisma, user.id, {
+          ipAddress: req.ip,
+          userAgent: req.headers["user-agent"],
+        });
+
+        // Set access token cookie (HttpOnly)
+        reply.setCookie(ACCESS_COOKIE, accessToken, {
+          httpOnly: true,
+          secure: env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: ACCESS_MAX_AGE_SEC,
+        });
+
+        // Set refresh token cookie (HttpOnly)
+        reply.setCookie(REFRESH_COOKIE, refreshToken, {
+          httpOnly: true,
+          secure: env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: REFRESH_MAX_AGE_SEC,
+        });
+
+        return reply.status(201).send({ success: true, user });
+      } catch (err) {
+        const e = toErrorResponse(err);
+        return reply.status(err instanceof Error && "statusCode" in err ? (err as any).statusCode : 400)
+          .send({ success: false, error: e });
+      }
     }
-
-    try {
-      const user = await registerUser(fastify.prisma, parsed.data);
-      const accessToken = issueAccessToken(fastify, { ...user, youtubeConnected: false });
-      const refreshToken = await issueRefreshToken(fastify.prisma, user.id, {
-        ipAddress: req.ip,
-        userAgent: req.headers["user-agent"],
-      });
-
-      reply.setCookie(REFRESH_COOKIE, refreshToken, {
-        httpOnly: true,
-        secure: env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 7 * 86_400,
-      });
-
-      return reply.status(201).send({ success: true, accessToken, user });
-    } catch (err) {
-      const e = toErrorResponse(err);
-      return reply.status(err instanceof Error && "statusCode" in err ? (err as any).statusCode : 400)
-        .send({ success: false, error: e });
-    }
-  });
+  );
 
   // ─── Login ────────────────────────────────────────────────────────────────
-  fastify.post("/login", async (req, reply) => {
-    const parsed = LoginBodySchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({
-        success: false,
-        error: { code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() },
-      });
+  fastify.post(
+    "/login",
+    {
+      // login rate limit: 5 requests per minute per IP
+      config: { rateLimit: { max: 5, timeWindow: 60_000 } },
+    },
+    async (req, reply) => {
+      const parsed = LoginBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() },
+        });
+      }
+
+      try {
+        const user = await loginUser(fastify.prisma, parsed.data);
+        const accessToken = issueAccessToken(fastify, user);
+        const refreshToken = await issueRefreshToken(fastify.prisma, user.id, {
+          ipAddress: req.ip,
+          userAgent: req.headers["user-agent"],
+        });
+
+        // Set access token cookie (HttpOnly)
+        reply.setCookie(ACCESS_COOKIE, accessToken, {
+          httpOnly: true,
+          secure: env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: ACCESS_MAX_AGE_SEC,
+        });
+
+        // Set refresh token cookie (HttpOnly)
+        reply.setCookie(REFRESH_COOKIE, refreshToken, {
+          httpOnly: true,
+          secure: env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: REFRESH_MAX_AGE_SEC,
+        });
+
+        return reply.send({ success: true, user });
+      } catch (err) {
+        const e = toErrorResponse(err);
+        const status = err instanceof Error && "statusCode" in err ? (err as any).statusCode : 401;
+        return reply.status(status).send({ success: false, error: e });
+      }
     }
-
-    try {
-      const user = await loginUser(fastify.prisma, parsed.data);
-      const accessToken = issueAccessToken(fastify, user);
-      const refreshToken = await issueRefreshToken(fastify.prisma, user.id, {
-        ipAddress: req.ip,
-        userAgent: req.headers["user-agent"],
-      });
-
-      reply.setCookie(REFRESH_COOKIE, refreshToken, {
-        httpOnly: true,
-        secure: env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 7 * 86_400,
-      });
-
-      return reply.send({ success: true, accessToken, user });
-    } catch (err) {
-      const e = toErrorResponse(err);
-      const status = err instanceof Error && "statusCode" in err ? (err as any).statusCode : 401;
-      return reply.status(status).send({ success: false, error: e });
-    }
-  });
+  );
 
   // ─── Refresh ──────────────────────────────────────────────────────────────
-  fastify.post("/refresh", async (req, reply) => {
-    // Accept token from cookie OR request body
-    const rawToken: string | undefined =
-      req.cookies?.[REFRESH_COOKIE] ||
-      (req.body as Record<string, string>)?.refreshToken;
+  fastify.post(
+    "/refresh",
+    {
+      // refresh rate limit: 10 requests per minute
+      config: { rateLimit: { max: 10, timeWindow: 60_000 } },
+    },
+    async (req, reply) => {
+      // Accept token from cookie OR request body
+      const rawToken: string | undefined =
+        req.cookies?.[REFRESH_COOKIE] ||
+        (req.body as Record<string, string>)?.refreshToken;
 
-    if (!rawToken) {
-      return reply.status(401).send({
-        success: false,
-        error: { code: "NO_REFRESH_TOKEN", message: "Refresh token not provided" },
-      });
+      if (!rawToken) {
+        return reply.status(401).send({
+          success: false,
+          error: { code: "NO_REFRESH_TOKEN", message: "Refresh token not provided" },
+        });
+      }
+
+      try {
+        const { accessToken, refreshToken } = await refreshAccessToken(fastify, fastify.prisma, rawToken);
+
+        // Rotate cookies
+        reply.setCookie(ACCESS_COOKIE, accessToken, {
+          httpOnly: true,
+          secure: env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: ACCESS_MAX_AGE_SEC,
+        });
+
+        reply.setCookie(REFRESH_COOKIE, refreshToken, {
+          httpOnly: true,
+          secure: env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: REFRESH_MAX_AGE_SEC,
+        });
+
+        return reply.send({ success: true });
+      } catch (err) {
+        const e = toErrorResponse(err);
+        return reply.status(401).send({ success: false, error: e });
+      }
     }
-
-    try {
-      const { accessToken, refreshToken } = await refreshAccessToken(fastify, fastify.prisma, rawToken);
-
-      reply.setCookie(REFRESH_COOKIE, refreshToken, {
-        httpOnly: true,
-        secure: env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 7 * 86_400,
-      });
-
-      return reply.send({ success: true, accessToken });
-    } catch (err) {
-      const e = toErrorResponse(err);
-      return reply.status(401).send({ success: false, error: e });
-    }
-  });
+  );
 
   // ─── Logout ───────────────────────────────────────────────────────────────
   fastify.post("/logout", {
@@ -141,7 +194,18 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     await logoutUser(fastify.prisma, req.user!.id, rawToken);
 
     reply.clearCookie(REFRESH_COOKIE, { path: "/" });
+    reply.clearCookie(ACCESS_COOKIE, { path: "/" });
     return reply.send({ success: true, message: "Logged out" });
+  });
+
+  // Logout from all sessions
+  fastify.post("/logout-all", {
+    preHandler: [fastify.authenticate],
+  }, async (req, reply) => {
+    await logoutUser(fastify.prisma, req.user!.id);
+    reply.clearCookie(REFRESH_COOKIE, { path: "/" });
+    reply.clearCookie(ACCESS_COOKIE, { path: "/" });
+    return reply.send({ success: true, message: "Logged out from all sessions" });
   });
 
   // ─── Me ───────────────────────────────────────────────────────────────────
@@ -196,22 +260,25 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         userAgent: req.headers["user-agent"],
       });
 
-      // Send refresh token as HttpOnly cookie
-      // Use path="/" so the cookie is also sent to the frontend proxy route
-      // /api/v2/auth/refresh on localhost:3000.
+      // Set access and refresh token cookies (HttpOnly)
+      reply.setCookie(ACCESS_COOKIE, accessToken, {
+        httpOnly: true,
+        secure: env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: ACCESS_MAX_AGE_SEC,
+      });
+
       reply.setCookie(REFRESH_COOKIE, refreshToken, {
         httpOnly: true,
         secure: env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        maxAge: 7 * 86_400,
+        maxAge: REFRESH_MAX_AGE_SEC,
       });
 
-      // Redirect to frontend with access token in query string
-      // Frontend's /auth/callback page will store it and redirect to /
-      return reply.redirect(
-        `${env.FRONTEND_URL}/auth/callback?token=${encodeURIComponent(accessToken)}`
-      );
+      // Redirect to frontend — frontend can now call /auth/me to get user
+      return reply.redirect(`${env.FRONTEND_URL}/auth/callback`);
     } catch (err) {
       fastify.log.error(err, "Google OAuth callback error");
       return reply.redirect(`${env.FRONTEND_URL}/auth/login?error=google_failed`);

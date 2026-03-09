@@ -28,7 +28,7 @@ const envSchema = z.object({
   // JWT
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 chars").default("vidion-dev-secret-key-change-in-prod"),
   JWT_EXPIRES_IN: z.string().default("15m"),
-  JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
+  JWT_REFRESH_EXPIRES_IN: z.string().default("30d"),
 
   // Encryption key for OAuth tokens (32 bytes / 64 hex chars)
   ENCRYPTION_KEY: z
