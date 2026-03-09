@@ -18,6 +18,7 @@ export function YTVideoCard({ video }: YTVideoCardProps) {
   const thumb = getBestThumb(video.thumbnails);
   const channelThumb = video.channelThumbnail;
 
+
   return (
     <Link href={`/watch/${video.id}`} className="group block">
       <div className="relative overflow-hidden rounded-xl bg-card transition-all duration-300 hover:shadow-lg hover:shadow-primary/10">
@@ -27,7 +28,7 @@ export function YTVideoCard({ video }: YTVideoCardProps) {
             <img
               src={thumb.url}
               alt={video.title}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className="h-full w-full object-cover"
               loading="lazy"
             />
           ) : (
@@ -35,6 +36,7 @@ export function YTVideoCard({ video }: YTVideoCardProps) {
               <Play className="h-8 w-8" />
             </div>
           )}
+
           {/* Duration */}
           {video.duration && (
             <div className="absolute bottom-2 right-2 rounded-md bg-black/80 px-1.5 py-0.5 text-xs font-medium text-white">

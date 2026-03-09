@@ -49,10 +49,12 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  title,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
+  title?: string
 }) {
   return (
     <SheetPortal>
@@ -73,6 +75,11 @@ function SheetContent({
         )}
         {...props}
       >
+        {/* Provide an accessible title for screen readers. If a visible title is supplied by the consumer
+            they can still use SheetTitle; this hidden title ensures Radix's accessibility check passes when
+            no title is present. */}
+        <SheetPrimitive.Title className="sr-only">{title ?? "Menu"}</SheetPrimitive.Title>
+
         {children}
         {showCloseButton && (
           <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">

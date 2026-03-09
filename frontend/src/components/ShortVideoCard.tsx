@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import VideoHoverPreview from "@/components/video/VideoHoverPreview";
+import { useEffect } from "react";
 import { Play } from "lucide-react";
 import type { VideoCardData } from "@/lib/api";
 
@@ -13,21 +15,20 @@ export function ShortVideoCard({ video }: ShortVideoCardProps) {
     video.thumbnails?.find((t) => t.width >= 320) ??
     video.thumbnails?.[video.thumbnails.length - 1];
 
+
   return (
     <Link href={`/watch/${video.id}`} className="group block">
       <div className="relative w-[160px] overflow-hidden rounded-xl bg-[#181818] transition-all duration-300 hover:translate-y-[-4px] hover:shadow-lg hover:shadow-violet-500/10">
-        {/* Vertical thumbnail */}
         <div className="relative aspect-[9/16] overflow-hidden rounded-xl bg-white/5">
+          {/* Gradient overlay */}
           {thumb && (
             <img
               src={thumb.url}
               alt={video.title}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+              className="h-full w-full object-cover"
               loading="lazy"
             />
           )}
-
-          {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
 
           {/* Duration */}

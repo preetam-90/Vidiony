@@ -1,33 +1,103 @@
 /**
  * API client — all backend calls go through here.
- * Easy to swap base URL via env var.
+ *
+ * Two base URLs:
+ *  API_BASE  → /api/yt  (legacy youtubei.js routes, proxied by Next.js)
+ *  API_V2    → /api/v2  (new routes: auth, search, trending, user, live, channels)
  */
 
-// With the Next.js rewrites in next.config.ts, /api/* and /proxy/* are proxied
-// to the Fastify backend on the same origin — no CORS issues at all.
-// Override with NEXT_PUBLIC_API_URL only if you move the backend to a different host.
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api/yt";
+const API_BASE = "/api/yt";
+const API_V2 = "/api/v2";
 
-async function fetcher<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
+// ─── Token storage (client-side only) ─────────────────────────────────────────
+export function getAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("vidion_token");
+}
+export function setAccessToken(token: string): void {
+  localStorage.setItem("vidion_token", token);
+}
+export function clearAccessToken(): void {
+  localStorage.removeItem("vidion_token");
+}
+
+// ─── Core fetcher ──────────────────────────────────────────────────────────────
+async function fetcher<T>(
+  base: string,
+  path: string,
+  init?: RequestInit & { skipAuth?: boolean }
+): Promise<T> {
+  const { skipAuth, ...rest } = init ?? {};
+  const token = skipAuth ? null : getAccessToken();
+
+  const hasBody = rest.body !== undefined && rest.body !== null;
+  const isFormData = typeof FormData !== "undefined" && rest.body instanceof FormData;
+
+  const res = await fetch(`${base}${path}`, {
+    ...rest,
+    credentials: "include", // send cookies (refresh token)
     headers: {
-      "Content-Type": "application/json",
-      ...init?.headers,
+      ...(hasBody && !isFormData ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...rest.headers,
     },
   });
 
+  // Auto-refresh on 401
+  if (res.status === 401 && !skipAuth && !path.includes("/auth/refresh")) {
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      return fetcher(base, path, init);
+    }
+  }
+
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as any).error ?? `API ${res.status}`);
+    const body: unknown = await res.json().catch(() => ({}));
+    const errorValue = typeof body === "object" && body !== null
+      ? (body as { error?: unknown }).error
+      : undefined;
+    const msg =
+      (typeof errorValue === "object" && errorValue !== null
+        ? (errorValue as { message?: string }).message
+        : undefined) ??
+      (typeof errorValue === "string" ? errorValue : undefined) ??
+      `API ${res.status}`;
+    throw new Error(msg);
   }
 
   return res.json() as Promise<T>;
 }
 
-// ---------------------------------------------------------------------------
-// Types (mirrors backend service types)
-// ---------------------------------------------------------------------------
+async function tryRefreshToken(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_V2}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (data.accessToken) {
+      setAccessToken(data.accessToken);
+      return true;
+    }
+    if (data.token) {
+      setAccessToken(data.token);
+      return true;
+    }
+    return false;
+  } catch {
+    clearAccessToken();
+    return false;
+  }
+}
+
+// Shorthand helpers
+const yt = <T>(path: string, init?: RequestInit) =>
+  fetcher<T>(API_BASE, path, init);
+const v2 = <T>(path: string, init?: RequestInit & { skipAuth?: boolean }) =>
+  fetcher<T>(API_V2, path, init);
+
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface VideoThumbnail {
   url: string;
@@ -61,6 +131,22 @@ export interface VideoCardData {
   channelThumbnail: VideoThumbnail | null;
 }
 
+export interface ChapterData {
+  time: number;
+  label: string;
+}
+
+export interface StoryboardData {
+  templateUrl: string;
+  thumbnailWidth: number;
+  thumbnailHeight: number;
+  thumbnailCount: number;
+  columns: number;
+  rows: number;
+  storyboardCount: number;
+  interval: number;
+}
+
 export interface VideoDetails {
   id: string;
   title: string;
@@ -77,15 +163,16 @@ export interface VideoDetails {
   category: string;
   isLive: boolean;
   formats: FormatMetadata[];
-  /** Caption tracks returned by the backend (may be empty for some videos) */
   captions: CaptionTrackMeta[];
+  chapters: ChapterData[];
+  storyboardSpec: string | null;
+  storyboard: StoryboardData | null;
 }
 
-/** Caption track info from the backend (no VTT URL — we build that client-side) */
 export interface CaptionTrackMeta {
-  id: string;       // "en", "fr", "en.auto"
-  label: string;    // "English", "English (auto-generated)"
-  language: string; // BCP-47 code
+  id: string;
+  label: string;
+  language: string;
   isAuto: boolean;
 }
 
@@ -110,53 +197,373 @@ export interface CommentData {
   isCreator: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// API functions
-// ---------------------------------------------------------------------------
+export interface AuthUser {
+  id: string;
+  email: string;
+  username: string;
+  name: string | null;
+  avatar: string | null;
+  verified: boolean;
+  youtubeConnected: boolean;
+}
+
+export interface SearchFilters {
+  type?: "video" | "channel" | "playlist" | "all";
+  sort?: "relevance" | "upload_date" | "view_count" | "rating";
+  upload_date?: "hour" | "today" | "week" | "month" | "year";
+  duration?: "short" | "medium" | "long";
+}
+
+export interface SearchResult {
+  type: "video" | "channel" | "playlist";
+  id: string;
+  title?: string;
+  name?: string;
+  thumbnails?: VideoThumbnail[];
+  thumbnail?: string;
+  channelName?: string;
+  channelId?: string;
+  viewCount?: string;
+  publishedAt?: string;
+  duration?: string;
+  videoCount?: number;
+  subscriberCount?: string;
+  isVerified?: boolean;
+  handle?: string;
+}
+
+export interface LiveInfo {
+  success: boolean;
+  videoId: string;
+  title: string;
+  channelName: string;
+  channelId: string;
+  viewers: string | null;
+  startTime: string | null;
+  thumbnails: VideoThumbnail[];
+  hlsManifestUrl: string | null;
+  dashManifestUrl: string | null;
+  isLive: boolean;
+  isUpcoming?: boolean;
+  formats?: Array<{
+    itag: number;
+    quality: string | null;
+    mimeType: string;
+    hasAudio: boolean;
+    hasVideo: boolean;
+    url: string | null;
+  }>;
+}
+
+export interface TrendingVideo {
+  videoId: string;
+  title: string;
+  channelName: string;
+  channelId: string;
+  thumbnail: string;
+  viewCount: string;
+  publishedAt: string;
+  duration: string;
+  category: string;
+}
+
+export interface WatchHistoryItem {
+  id: string;
+  title: string;
+  thumbnail: string;
+  channelName: string;
+  duration: string;
+  watchedAt: number;
+}
+
+export interface Playlist {
+  id: string;
+  title: string;
+  videoCount: number;
+  thumbnail: string | null;
+  isPrivate: boolean;
+  lastUpdated?: string;
+}
+
+export interface YTHistoryVideo {
+  id: string;
+  title: string;
+  thumbnail: string;
+  channelName: string;
+  channelId: string;
+  channelThumbnail: string | null;
+  duration: string;
+  viewCount: string;
+  publishedAt: string;
+  isLive: boolean;
+}
+
+export interface YTHistorySection {
+  title: string; // "Today", "Yesterday", "This week", etc.
+  videos: YTHistoryVideo[];
+}
+
+export interface YTSubscription {
+  channelId: string;
+  channelName: string;
+  thumbnail: string | null;
+  subscriberCount: string;
+  videoCount: string;
+  hasNewVideos: boolean;
+}
+
+export interface YTNotification {
+  id: string;
+  title: string;
+  sentAt: string;
+  videoId: string | null;
+  thumbnail: string | null;
+  channelName: string;
+  isRead: boolean;
+}
+
+// ─── API object ────────────────────────────────────────────────────────────────
 
 export const api = {
-  /** Trending / home feed with pagination */
-  getFeed: (page: number = 1, limit: number = 8) =>
-    fetcher<{ videos: VideoCardData[] }>(`/feed?page=${page}&limit=${limit}`),
+  // ── Legacy /api/yt routes (always available, no auth needed) ──────────────
 
-  /** Search videos */
-  search: (q: string) => fetcher<{ videos: VideoCardData[] }>(`/search?q=${encodeURIComponent(q)}`),
+  getFeed: (page = 1, limit = 8) =>
+    yt<{ videos: VideoCardData[] }>(`/feed?page=${page}&limit=${limit}`),
 
-  /** Video details + format metadata */
-  getVideo: (id: string) => fetcher<{ video: VideoDetails }>(`/video/${id}`),
+  search: (q: string) =>
+    yt<{ videos: VideoCardData[] }>(`/search?q=${encodeURIComponent(q)}`),
 
-  /** Related videos */
-  getRelated: (id: string) => fetcher<{ videos: VideoCardData[] }>(`/video/${id}/related`),
+  getVideo: (id: string) =>
+    yt<{ video: VideoDetails }>(`/video/${id}`),
 
-  /** Comments */
-  getComments: (id: string) => fetcher<{ comments: CommentData[] }>(`/video/${id}/comments`),
+  getRelated: (id: string) =>
+    yt<{ videos: VideoCardData[] }>(`/video/${id}/related`),
 
-  /** Channel info */
-  getChannel: (id: string) => fetcher<{ channel: ChannelInfo }>(`/channel/${id}`),
+  getComments: (id: string, page = 0, sort: "top" | "new" = "top") =>
+    yt<{ comments: CommentData[]; hasMore: boolean; totalCount: string | null }>(
+      `/video/${id}/comments?page=${page}&sort=${sort}`
+    ),
 
-  /** Build proxied stream URL (for <video src>) — optional quality label e.g. "720p" */
+  getChannel: (id: string) =>
+    yt<{ channel: ChannelInfo }>(`/channel/${id}`),
+
   streamUrl: (videoId: string, quality?: string) => {
     const base = `${API_BASE}/stream/${videoId}`;
     return quality ? `${base}?quality=${encodeURIComponent(quality)}` : base;
   },
 
-  /**
-   * Direct merged-stream URL — ffmpeg merges video+audio on the server.
-   * Use this as the video src for any explicit quality selection.
-   * The response is a streamable fragmented MP4 (no JSON wrapper).
-   */
   mergeStreamUrl: (videoId: string, quality: string) =>
     `${API_BASE}/merged-stream/${videoId}?quality=${encodeURIComponent(quality)}`,
 
-  /**
-   * Proxied VTT caption URL.
-   * YouTube's timedtext endpoint has CORS headers that block browser requests,
-   * so we pipe it through the backend.
-   *
-   * @param isAuto  pass true for auto-generated (ASR) tracks
-   */
   captionUrl: (videoId: string, language: string, isAuto: boolean) => {
     const base = `${API_BASE}/captions/${videoId}?lang=${encodeURIComponent(language)}`;
     return isAuto ? `${base}&kind=asr` : base;
+  },
+
+  // ── Auth (/api/v2/auth) ────────────────────────────────────────────────────
+
+  auth: {
+    register: (body: { email: string; username: string; password: string; name?: string }) =>
+      v2<{ accessToken: string; user: AuthUser }>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify(body),
+        skipAuth: true,
+      }),
+
+    login: (body: { email: string; password: string }) =>
+      v2<{ accessToken: string; user: AuthUser }>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify(body),
+        skipAuth: true,
+      }),
+
+    refresh: () =>
+      v2<{ accessToken: string }>("/auth/refresh", { method: "POST", skipAuth: true }),
+
+    logout: () =>
+      v2<{ success: boolean }>("/auth/logout", { method: "POST" }),
+
+    me: () =>
+      v2<{ user: AuthUser }>("/auth/me"),
+
+    youtubeStatus: () =>
+      v2<{ connected: boolean; channelId: string | null; channelName: string | null }>(
+        "/auth/youtube/status"
+      ),
+
+    youtubeConnectUrl: () =>
+      v2<{ url: string }>("/auth/youtube/connect", { method: "POST" }),
+
+    /** Returns the backend Google OAuth URL (profile + YouTube scopes) */
+    googleLoginUrl: () =>
+      `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"}/auth/google`,
+
+    youtubeDisconnect: () =>
+      v2<{ success: boolean }>("/auth/youtube/disconnect", { method: "POST" }),
+  },
+
+  // ── Enhanced search (/api/v2/search) ──────────────────────────────────────
+
+  searchV2: (q: string, filters: SearchFilters = {}) => {
+    const params = new URLSearchParams({ q });
+    if (filters.type) params.set("type", filters.type);
+    if (filters.sort) params.set("sort", filters.sort);
+    if (filters.upload_date) params.set("upload_date", filters.upload_date);
+    if (filters.duration) params.set("duration", filters.duration);
+    return v2<{ success: boolean; results: SearchResult[]; estimatedResults: number }>(
+      `/search?${params}`,
+      { skipAuth: true }
+    );
+  },
+
+  searchSuggestions: (q: string) =>
+    v2<{ suggestions: string[] }>(
+      `/search/suggestions?q=${encodeURIComponent(q)}`,
+      { skipAuth: true }
+    ),
+
+  // ── Trending (/api/v2/trending) ────────────────────────────────────────────
+
+  getTrending: (category = "trending", region = "US") =>
+    v2<{ videos: TrendingVideo[]; category: string; cachedAt: string | null }>(
+      `/trending?category=${category}&region=${region}`,
+      { skipAuth: true }
+    ),
+
+  // ── Video actions (/api/v2/videos) ─────────────────────────────────────────
+
+  likeVideo: (id: string) =>
+    v2<{ success: boolean }>(`/videos/${id}/like`, { method: "POST" }),
+
+  dislikeVideo: (id: string) =>
+    v2<{ success: boolean }>(`/videos/${id}/dislike`, { method: "POST" }),
+
+  removeVideoRating: (id: string) =>
+    v2<{ success: boolean }>(`/videos/${id}/like`, { method: "DELETE" }),
+
+  postComment: (id: string, text: string) =>
+    v2<{ success: boolean }>(`/videos/${id}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+
+  getVideoState: (id: string, channelId?: string) =>
+    v2<{ success: boolean; liked: boolean; disliked: boolean; subscribed: boolean }>(
+      `/videos/${id}/state${channelId ? `?channelId=${encodeURIComponent(channelId)}` : ""}`
+    ),
+
+  downloadUrl: (id: string, quality = "best") => {
+    const params = new URLSearchParams();
+    if (quality === "audio") {
+      params.set("quality", "best");
+      params.set("format", "audio");
+    } else {
+      params.set("quality", quality);
+    }
+
+    const token = typeof window !== "undefined" ? getAccessToken() : null;
+    if (token) params.set("token", token);
+
+    return `${API_V2}/videos/${id}/download?${params.toString()}`;
+  },
+
+  getTranscript: (id: string, lang = "en") =>
+    v2<{ transcript: Array<{ text: string; start: number; duration: number }> }>(
+      `/videos/${id}/transcript?lang=${lang}`,
+      { skipAuth: true }
+    ),
+
+  // ── Channel videos (/api/v2/channels) ─────────────────────────────────────
+
+  getChannelVideos: (
+    id: string,
+    tab: "videos" | "shorts" | "live" | "playlists" = "videos"
+  ) =>
+    v2<{ videos: VideoCardData[] }>(
+      `/channels/${id}/videos?tab=${tab}`,
+      { skipAuth: true }
+    ),
+
+  // ── Live (/api/v2/live) ────────────────────────────────────────────────────
+
+  getLiveInfo: (videoId: string) =>
+    v2<LiveInfo>(`/live/${videoId}`, { skipAuth: true }),
+
+  // ── User history (/api/v2/user/history) ───────────────────────────────────
+
+  user: {
+    getHistory: () =>
+      v2<{ items: WatchHistoryItem[] }>("/user/history"),
+
+    recordHistory: (item: Omit<WatchHistoryItem, "watchedAt">) =>
+      v2<{ success: boolean }>("/user/history", {
+        method: "POST",
+        body: JSON.stringify(item),
+      }),
+
+    removeFromHistory: (videoId: string) =>
+      v2<{ success: boolean }>(`/user/history/${videoId}`, { method: "DELETE" }),
+
+    clearHistory: () =>
+      v2<{ success: boolean }>("/user/history/clear", { method: "DELETE" }),
+
+    getSubscriptions: () =>
+      v2<{ subscriptions: Array<{ channelId: string; channelName: string; thumbnail: string | null }> }>(
+        "/user/subscriptions"
+      ),
+
+    subscribe: (channelId: string) =>
+      v2<{ success: boolean }>(`/user/subscriptions/${channelId}`, { method: "POST" }),
+
+    unsubscribe: (channelId: string) =>
+      v2<{ success: boolean }>(`/user/subscriptions/${channelId}`, { method: "DELETE" }),
+
+    getSubscriptionFeed: () =>
+      v2<{ videos: VideoCardData[] }>("/user/subscriptions/feed"),
+
+    getPlaylists: () =>
+      v2<{ playlists: Playlist[] }>("/user/playlists"),
+
+    createPlaylist: (title: string, isPrivate = false) =>
+      v2<{ playlist: Playlist }>("/user/playlists", {
+        method: "POST",
+        body: JSON.stringify({ title, isPrivate }),
+      }),
+
+    addToPlaylist: (playlistId: string, videoId: string) =>
+      v2<{ success: boolean }>(`/user/playlists/${playlistId}/videos`, {
+        method: "POST",
+        body: JSON.stringify({ videoId }),
+      }),
+
+    // ── YouTube account data (requires YouTube OAuth connected) ─────────────
+
+    /** Real YouTube watch history from Google account, grouped by date */
+    getYouTubeHistory: () =>
+      v2<{ sections: YTHistorySection[]; hasMore: boolean }>("/user/youtube/history"),
+
+    /** User's liked videos playlist from YouTube */
+    getLikedVideos: () =>
+      v2<{ videos: YTHistoryVideo[]; total: number }>("/user/youtube/liked"),
+
+    /** User's Watch Later playlist from YouTube */
+    getWatchLater: () =>
+      v2<{ videos: YTHistoryVideo[] }>("/user/youtube/watch-later"),
+
+    /** Subscribed channels list from YouTube */
+    getYouTubeSubscriptions: () =>
+      v2<{ subscriptions: YTSubscription[] }>("/user/youtube/subscriptions"),
+
+    /** Latest videos from subscribed channels */
+    getYouTubeFeed: () =>
+      v2<{ videos: VideoCardData[] }>("/user/youtube/feed"),
+
+    /** YouTube notifications */
+    getNotifications: () =>
+      v2<{ notifications: YTNotification[]; unseenCount: number }>("/user/youtube/notifications"),
+
+    /** User's YouTube playlists */
+    getYouTubePlaylists: () =>
+      v2<{ playlists: Playlist[] }>("/user/youtube/playlists"),
   },
 };

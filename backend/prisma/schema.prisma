@@ -1,54 +1,166 @@
-// Prisma schema for Vidion video platform
+// Prisma schema for Vidion platform
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  username      String    @unique
-  password      String
-  name          String?
-  avatar        String?
-  bio           String?
-  verified      Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+// ─── Vidion Users ─────────────────────────────────────────────────────────────
 
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  name      String?
+  avatar    String?
+  bio       String?
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // YouTube OAuth connection
+  youtubeTokens     String?  // AES-GCM encrypted JSON
+  youtubeConnected  Boolean  @default(false)
+  youtubeChannelId  String?
+  youtubeHandle     String?
+
+  // Google login
+  googleId          String?  @unique
+
+  // Relations (platform videos / social)
+  sessions      UserSession[]
+  history       WatchHistory[]
+  downloads     DownloadQueue[]
   videos        Video[]
   comments      Comment[]
-  likes        Like[]
+  likes         Like[]
   subscriptions Subscription[] @relation("subscribedTo")
   subscribers   Subscription[] @relation("subscribedBy")
 
   @@map("users")
 }
 
+// ─── Auth Sessions (refresh tokens) ─────────────────────────────────────────
+
+model UserSession {
+  id          String   @id @default(uuid())
+  userId      String
+  tokenHash   String   @unique  // bcrypt hash of the refresh token
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_sessions")
+}
+
+// ─── Trending Cache (refreshed every 6h via BullMQ) ─────────────────────────
+
+model TrendingVideo {
+  id          String           @id   // YouTube video ID
+  title       String
+  thumbnail   String
+  channelName String
+  channelId   String
+  channelThumb String?
+  viewCount   String
+  publishedAt String
+  duration    String
+  category    TrendingCategory
+  rank        Int
+  rawData     Json             // Full youtubei.js response
+  updatedAt   DateTime         @updatedAt
+
+  @@index([category])
+  @@map("trending_videos")
+}
+
+enum TrendingCategory {
+  TRENDING
+  MUSIC
+  GAMING
+  MOVIES
+  NEWS
+}
+
+// ─── Watch History ────────────────────────────────────────────────────────────
+
+model WatchHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  videoId   String   // YouTube video ID
+  title     String?
+  thumbnail String?
+  channelName String?
+  duration  Int?     // seconds
+  progress  Int      @default(0) // seconds watched
+  watchedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([userId, watchedAt(sort: Desc)])
+  @@map("watch_history")
+}
+
+// ─── Download Queue ───────────────────────────────────────────────────────────
+
+model DownloadQueue {
+  id          String         @id @default(uuid())
+  userId      String
+  videoId     String
+  title       String?
+  quality     String
+  format      String
+  status      DownloadStatus @default(PENDING)
+  requestedAt DateTime       @default(now())
+  completedAt DateTime?
+  error       String?
+
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("download_queue")
+}
+
+enum DownloadStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ─── Platform Videos (user-uploaded content on Vidion itself) ────────────────
+
 model Video {
-  id           String   @id @default(uuid())
-  title        String
-  description  String?
-  thumbnail    String?
-  videoUrl     String
-  duration     Int      @default(0)
-  views        Int      @default(0)
-  visibility   Visibility @default(PUBLIC)
-  category     String?
-  tags         String[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  thumbnail   String?
+  videoUrl    String
+  duration    Int        @default(0)
+  views       Int        @default(0)
+  visibility  Visibility @default(PUBLIC)
+  category    String?
+  tags        String[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  comments     Comment[]
-  likes        Like[]
+  comments    Comment[]
+  likes       Like[]
 
   @@map("videos")
 }

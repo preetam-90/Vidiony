@@ -50,16 +50,6 @@ export function useRelatedVideos(id: string) {
 }
 
 /** Comments */
-export function useComments(id: string) {
-  return useQuery({
-    queryKey: ["comments", id],
-    queryFn: () => api.getComments(id),
-    enabled: !!id,
-    staleTime: 3 * 60 * 1000,
-    select: (data) => data.comments,
-  });
-}
-
 /** Channel info */
 export function useChannel(id: string) {
   return useQuery({

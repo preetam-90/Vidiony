@@ -1,638 +1,965 @@
-/* ────────────────────────────────────────────────
-   Vidion Custom Player — player.css
-   ──────────────────────────────────────────────── */
+/* Vidion – Modern Video Player */
 
-/* Inner controls shell — pointer-events always on so buttons are clickable */
-.vp-controls-inner {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  pointer-events: auto;
+:root {
+  --vidion-bg: #0a0e27;
+  --vidion-surface: rgba(15, 19, 35, 0.68);
+  --vidion-surface-strong: rgba(20, 25, 45, 0.92);
+  --vidion-border: rgba(255, 255, 255, 0.08);
+  --vidion-border-hover: rgba(255, 255, 255, 0.14);
+  --vidion-text: rgba(255, 255, 255, 0.95);
+  --vidion-text-secondary: rgba(255, 255, 255, 0.65);
+  --vidion-text-muted: rgba(255, 255, 255, 0.48);
+  --vidion-accent: #6366f1;
+  --vidion-accent-alt: #ec4899;
+  --vidion-accent-glow: rgba(99, 102, 241, 0.2);
+  --vidion-accent-bright: #818cf8;
+  --vidion-shadow: 0 20px 72px rgba(0, 0, 0, 0.48);
+  --vidion-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.16);
 }
 
-/* Container */
-.vp-root {
+.vidion-player {
   position: relative;
   width: 100%;
-  background: #000;
-  border-radius: 12px;
+  background:
+    radial-gradient(circle at -20% -20%, rgba(99, 102, 241, 0.12), transparent 40%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.02), transparent 50%),
+    var(--vidion-bg);
+  border-radius: 20px;
   overflow: hidden;
   outline: none;
   user-select: none;
   -webkit-user-select: none;
-  font-family: 'General Sans', system-ui, sans-serif;
+  box-shadow: var(--vidion-shadow);
+  transition: box-shadow 240ms cubic-bezier(0.23, 1, 0.320, 1);
 }
 
-.vp-root:focus-visible {
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.5);
+.vidion-player:focus-visible {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5), var(--vidion-shadow);
 }
 
-/* Aspect ratio shell */
-.vp-aspect {
+.vidion-player.is-fullscreen {
+  border-radius: 0;
+}
+
+.vidion-player-stage {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
 }
 
-/* Native video element */
-.vp-video {
+.vidion-player-video {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  object-fit: contain;
   display: block;
-  will-change: transform;
-  /* hardware acceleration */
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-  backface-visibility: hidden;
+  background: #000;
 }
 
-/* ─── Controls fade in/out ──────────────────── */
+.vidion-player-shade,
+.vidion-player-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
 
-.vp-controls-layer {
+.vidion-player-shade-top {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.48), transparent 32%);
+}
+
+.vidion-player-shade-bottom {
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.92), rgba(0, 0, 0, 0.22) 40%, transparent 68%);
+}
+
+.vidion-player-vignette {
+  background: radial-gradient(circle at center, transparent 50%, rgba(0, 0, 0, 0.24) 100%);
+}
+
+.vidion-player-header {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: min(100%, 46rem);
+  padding: 18px 20px;
+  z-index: 4;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 180ms ease, transform 180ms ease;
+  pointer-events: none;
+}
+
+.vidion-player-header.is-visible,
+.vidion-player.controls-visible .vidion-player-header {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.vidion-player-title {
+  color: var(--vidion-text);
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.vidion-controls-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.vidion-controls-layer.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.vidion-controls {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  pointer-events: none;
-  transition: opacity 0.25s ease;
 }
 
-.vp-controls-layer.visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.vp-controls-layer.hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* Top gradient (title bar) */
-.vp-gradient-top {
+.vidion-controls-backdrop {
   position: absolute;
-  inset: 0 0 auto 0;
-  height: 80px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.65) 0%, transparent 100%);
+  inset: auto 12px 12px;
+  height: 120px;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.18) 28%, rgba(0, 0, 0, 0.64));
   pointer-events: none;
 }
 
-/* Bottom gradient */
-.vp-gradient-bottom {
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 160px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* ─── Progress bar ──────────────────────────── */
-
-.vp-progress-wrapper {
+.vidion-controls-bottom {
   position: relative;
-  width: 100%;
-  height: 20px;
+  padding: 0 16px 14px;
+}
+
+.vidion-controls-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.04)
+  );
+  backdrop-filter: blur(24px) saturate(130%);
+  -webkit-backdrop-filter: blur(24px) saturate(130%);
+  border: 1px solid var(--vidion-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  transition: all 240ms ease;
+}
+
+.vidion-controls-group {
   display: flex;
   align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vidion-controls-group-center {
+  justify-content: center;
+}
+
+.vidion-controls-group-right {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.vidion-icon-button,
+.vidion-chip-button {
+  appearance: none;
+  border: 0;
+  color: var(--vidion-text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--vidion-border);
+  transition:
+    background 160ms cubic-bezier(0.23, 1, 0.320, 1),
+    border-color 160ms cubic-bezier(0.23, 1, 0.320, 1),
+    transform 160ms cubic-bezier(0.23, 1, 0.320, 1),
+    color 160ms ease,
+    box-shadow 160ms ease;
   cursor: pointer;
-  padding: 0 16px;
-  z-index: 1;
 }
 
-.vp-progress-track {
-  position: relative;
-  width: 100%;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 99px;
+.vidion-icon-button {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.vidion-chip-button {
+  min-width: 3.5rem;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.vidion-icon-button:hover,
+.vidion-chip-button:hover,
+.vidion-icon-button:focus-visible,
+.vidion-chip-button:focus-visible {
+  color: var(--vidion-text);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--vidion-border-hover);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.vidion-icon-button:active,
+.vidion-chip-button:active {
+  transform: scale(0.97);
+}
+
+.vidion-primary-button {
+  color: white;
+  background: linear-gradient(135deg, var(--vidion-accent), var(--vidion-accent-bright));
+  border-color: rgba(129, 140, 248, 0.3);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.24);
+}
+
+.vidion-primary-button:hover,
+.vidion-primary-button:focus-visible {
+  background: linear-gradient(135deg, var(--vidion-accent-bright), rgba(99, 102, 241, 1));
+  border-color: rgba(129, 140, 248, 0.4);
+  box-shadow: 0 12px 32px rgba(99, 102, 241, 0.32);
+}
+
+.vidion-icon-button.is-active,
+.vidion-chip-button.is-active {
+  color: white;
+  background: rgba(99, 102, 241, 0.14);
+  border-color: rgba(99, 102, 241, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.12);
+}
+
+.vidion-time-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--vidion-text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.vidion-time-divider {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.vidion-volume {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vidion-volume-slider-shell {
+  width: 0;
   overflow: hidden;
-  transition: height 0.15s ease;
+  transition: width 180ms ease;
 }
 
-.vp-progress-wrapper:hover .vp-progress-track {
-  height: 5px;
+.vidion-volume:hover .vidion-volume-slider-shell,
+.vidion-volume:focus-within .vidion-volume-slider-shell {
+  width: 86px;
 }
 
-.vp-progress-buffered {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.35);
-  border-radius: 99px;
-  transition: width 0.3s linear;
+.vidion-volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 82px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--vidion-accent) var(--vidion-volume, 100%),
+    rgba(255, 255, 255, 0.16) var(--vidion-volume, 100%)
+  );
+  cursor: pointer;
 }
 
-.vp-progress-played {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  background: #22c55e;
-  border-radius: 99px;
-  transition: width 0.1s linear;
-}
-
-.vp-progress-thumb {
-  position: absolute;
-  top: 50%;
+.vidion-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
   width: 12px;
   height: 12px;
+  border-radius: 999px;
   background: #fff;
-  border-radius: 50%;
-  transform: translate(-50%, -50%) scale(0);
-  transition: transform 0.15s ease;
-  pointer-events: none;
-  box-shadow: 0 0 4px rgba(0,0,0,0.6);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
 }
 
-.vp-progress-wrapper:hover .vp-progress-thumb {
+.vidion-volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
+}
+
+.vidion-progress {
+  position: relative;
+  padding: 14px 2px 4px;
+  cursor: pointer;
+}
+
+.vidion-progress-track {
+  position: relative;
+  height: 5px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+  transition: height 160ms ease, box-shadow 160ms ease;
+}
+
+.vidion-progress:hover .vidion-progress-track,
+.vidion-progress.is-dragging .vidion-progress-track {
+  height: 7px;
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.2);
+}
+
+.vidion-progress-buffered,
+.vidion-progress-played {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+}
+
+.vidion-progress-buffered {
+  background: rgba(255, 255, 255, 0.2);
+  transition: width 180ms linear;
+}
+
+.vidion-progress-played {
+  background: linear-gradient(90deg, var(--vidion-accent), var(--vidion-accent-bright));
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.28);
+  transition: width 80ms linear;
+}
+
+.vidion-progress-marker {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.64);
+  transform: translate(-50%, -50%);
+  transition: height 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.vidion-progress:hover .vidion-progress-marker,
+.vidion-progress.is-dragging .vidion-progress-marker {
+  height: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.16);
+}
+
+.vidion-progress-scrubber {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.14), 0 4px 20px rgba(99, 102, 241, 0.2);
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 160ms ease;
+}
+
+.vidion-progress:hover .vidion-progress-scrubber,
+.vidion-progress.is-dragging .vidion-progress-scrubber {
   transform: translate(-50%, -50%) scale(1);
 }
 
-/* Hover tooltip */
-.vp-progress-tooltip {
+.vidion-progress-preview {
   position: absolute;
-  bottom: 28px;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.85);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 5px;
-  white-space: nowrap;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%) translateY(0) scale(1);
+  min-width: 96px;
+  max-width: 220px;
+  padding: 8px;
+  border-radius: 16px;
+  background: rgba(10, 10, 12, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.34);
   pointer-events: none;
-  letter-spacing: 0.03em;
+  animation: vidion-preview-in 140ms ease;
 }
 
-/* ─── Control bar ───────────────────────────── */
-
-.vp-control-bar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 12px 12px;
-  position: relative;
-  z-index: 1;
+@keyframes vidion-preview-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
 }
 
-/* Icon buttons */
-.vp-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
-  flex-shrink: 0;
-}
-
-.vp-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-}
-
-.vp-btn:active {
-  transform: scale(0.9);
-}
-
-.vp-btn.active {
-  color: #22c55e;
-}
-
-/* Time display */
-.vp-time {
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
+.vidion-progress-chapter-label {
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(99, 102, 241, 0.08));
+  border: 1px solid rgba(99, 102, 241, 0.16);
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  max-width: 240px;
   white-space: nowrap;
-  letter-spacing: 0.03em;
-  padding: 0 4px;
-}
-
-.vp-time-sep {
-  color: rgba(255, 255, 255, 0.4);
-  margin: 0 2px;
-}
-
-/* Spacer */
-.vp-spacer {
-  flex: 1;
-}
-
-/* ─── Volume slider ──────────────────────────── */
-
-.vp-volume-group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.vp-volume-slider-wrap {
-  width: 0;
   overflow: hidden;
-  transition: width 0.2s ease;
+  text-overflow: ellipsis;
 }
 
-.vp-volume-group:hover .vp-volume-slider-wrap,
-.vp-volume-slider-wrap:focus-within {
-  width: 72px;
-}
-
-.vp-volume-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 68px;
-  height: 3px;
-  background: linear-gradient(
-    to right,
-    #22c55e var(--vp-vol, 100%),
-    rgba(255,255,255,0.2) var(--vp-vol, 100%)
-  );
-  border-radius: 99px;
-  outline: none;
-  cursor: pointer;
-}
-
-.vp-volume-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 12px;
-  height: 12px;
-  background: #fff;
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: 0 0 4px rgba(0,0,0,0.5);
-}
-
-.vp-volume-slider::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  background: #fff;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-/* ─── Popup menus ────────────────────────────── */
-
-.vp-popup {
-  position: absolute;
-  bottom: 56px;
-  right: 12px;
-  min-width: 160px;
-  background: rgba(15, 15, 20, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.vidion-progress-preview-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
   border-radius: 10px;
-  overflow: hidden;
-  z-index: 50;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-  animation: vp-popup-in 0.15s ease;
+  margin-bottom: 6px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    background-position 80ms ease-out,
+    filter 120ms ease;
+  animation: vidion-preview-frame-in 120ms ease;
 }
 
-@keyframes vp-popup-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+.vidion-progress-preview-image.is-sprite {
+  image-rendering: auto;
 }
 
-.vp-popup-header {
-  font-size: 10px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.4);
+@keyframes vidion-preview-frame-in {
+  from {
+    opacity: 0.72;
+    transform: scale(0.985);
+    filter: saturate(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: saturate(1);
+  }
+}
+
+.vidion-progress-preview-time {
+  color: white;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.vidion-floating-menu {
+  position: absolute;
+  bottom: 78px;
+  z-index: 8;
+}
+
+.vidion-floating-menu-right {
+  right: 16px;
+}
+
+.vidion-menu {
+  min-width: 176px;
+  padding: 6px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(20, 25, 45, 0.96), rgba(15, 19, 35, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(28px) saturate(140%);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+  animation: vidion-menu-in 160ms cubic-bezier(0.23, 1, 0.320, 1);
+}
+
+@keyframes vidion-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.vidion-menu-header {
+  padding: 8px 10px 6px;
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 0.66rem;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 10px 14px 4px;
 }
 
-.vp-popup-item {
+.vidion-menu-item {
+  width: 100%;
   display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--vidion-text-secondary);
+  font-size: 0.86rem;
+  font-weight: 560;
+  text-align: left;
+  transition: all 140ms ease;
+}
+
+.vidion-menu-item:hover,
+.vidion-menu-item:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--vidion-text);
+  outline: none;
+}
+
+.vidion-menu-item.is-active {
+  color: white;
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.16);
+}
+
+.vidion-menu-item.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.vidion-menu-check {
+  margin-left: auto;
+}
+
+.vidion-watermark {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 7;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
-  padding: 9px 14px;
-  background: transparent;
-  border: none;
-  color: rgba(255,255,255,0.85);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.12s ease;
-  text-align: left;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.88);
+  text-decoration: none;
+  opacity: 0.6;
+  transition: opacity 160ms ease, transform 160ms ease, background 160ms ease, border-color 160ms ease;
+  background: rgba(15, 19, 35, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  pointer-events: auto;
 }
 
-.vp-popup-item:hover {
-  background: rgba(255,255,255,0.08);
+.vidion-watermark:hover,
+.vidion-watermark:focus-visible {
+  opacity: 0.92;
+  transform: translateY(-2px);
+  outline: none;
+  background: rgba(15, 19, 35, 0.64);
+  border-color: rgba(99, 102, 241, 0.14);
 }
 
-.vp-popup-item.active {
-  color: #22c55e;
+.vidion-watermark-logo {
+  width: 164px;
+  height: 34px;
+  display: block;
+  color: currentColor;
 }
 
-.vp-popup-item.active .vp-check {
-  opacity: 1;
+.vidion-controls-layer.is-visible ~ .vidion-watermark,
+.vidion-player.controls-visible .vidion-watermark {
+  bottom: 88px;
 }
 
-.vp-check {
-  margin-left: auto;
-  opacity: 0;
-  color: #22c55e;
-}
-
-/* ─── Center action feedback ─────────────────── */
-
-.vp-center-feedback {
+.vidion-feedback-shell,
+.vidion-player-spinner-shell,
+.vidion-player-error,
+.vidion-pip-indicator,
+.vidion-gesture-indicator {
   position: absolute;
+  z-index: 6;
+}
+
+.vidion-feedback-shell,
+.vidion-player-spinner-shell,
+.vidion-player-error {
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
 }
 
-.vp-feedback-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.5);
+.vidion-feedback-badge {
+  width: 84px;
+  height: 84px;
+  border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  animation: vp-feedback-pop 0.5s ease forwards;
+  color: white;
+  background: rgba(10, 14, 27, 0.52);
+  border: 1px solid rgba(99, 102, 241, 0.12);
+  backdrop-filter: blur(20px);
+  animation: vidion-feedback-pop 420ms cubic-bezier(0.23, 1, 0.320, 1);
 }
 
-@keyframes vp-feedback-pop {
-  0%   { opacity: 0; transform: scale(0.6); }
-  20%  { opacity: 1; transform: scale(1.1); }
-  50%  { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(0.9); }
+@keyframes vidion-feedback-pop {
+  0% { opacity: 0; transform: scale(0.72); }
+  35% { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 0; transform: scale(0.94); }
 }
 
-/* ─── Seek flash ─────────────────────────────── */
-
-.vp-seek-flash {
+.vidion-skip-flash {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 25%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
+  top: 50%;
+  z-index: 6;
   opacity: 0;
+  transform: translateY(-50%) scale(0.92);
+  transition: opacity 180ms ease, transform 180ms ease;
+  pointer-events: none;
 }
 
-.vp-seek-flash.left  { left: 0; }
-.vp-seek-flash.right { right: 0; }
-
-.vp-seek-flash.show {
-  animation: vp-seek-anim 0.5s ease forwards;
+.vidion-skip-flash.is-left {
+  left: 10%;
 }
 
-@keyframes vp-seek-anim {
-  0%   { opacity: 0; }
-  20%  { opacity: 1; }
-  70%  { opacity: 1; }
-  100% { opacity: 0; }
+.vidion-skip-flash.is-right {
+  right: 10%;
 }
 
-.vp-seek-flash-inner {
-  display: flex;
-  flex-direction: column;
+.vidion-skip-flash.is-visible {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+.vidion-skip-flash-badge,
+.vidion-gesture-indicator,
+.vidion-pip-indicator {
+  color: white;
+  border-radius: 999px;
+  background: rgba(10, 14, 27, 0.6);
+  border: 1px solid rgba(99, 102, 241, 0.12);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.vidion-skip-flash-badge {
+  padding: 12px 18px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.vidion-gesture-indicator {
+  left: 50%;
+  bottom: 28%;
+  transform: translateX(-50%);
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.vidion-pip-indicator {
+  top: 18px;
+  right: 18px;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: rgba(0, 0, 0, 0.45);
-  border-radius: 50%;
-  width: 80px;
-  height: 80px;
-  padding-top: 16px;
-}
-
-.vp-seek-flash-inner span {
-  color: #fff;
-  font-size: 11px;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 0.8rem;
   font-weight: 600;
 }
 
-/* ─── Spinner / loading ──────────────────────── */
-
-.vp-spinner-wrap {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 20;
-}
-
-.vp-spinner {
+.vidion-player-spinner {
   width: 48px;
   height: 48px;
-  border: 3px solid rgba(255,255,255,0.15);
-  border-top-color: #22c55e;
-  border-radius: 50%;
-  animation: vp-spin 0.7s linear infinite;
+  border-radius: 999px;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--vidion-accent);
+  animation: vidion-spin 700ms linear infinite;
 }
 
-@keyframes vp-spin {
-  to { transform: rotate(360deg); }
+@keyframes vidion-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* ─── Error overlay ──────────────────────────── */
-
-.vp-error-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
+.vidion-player-error {
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 12px;
-  background: rgba(0,0,0,0.8);
-  z-index: 30;
-  padding: 24px;
+  padding: 28px;
   text-align: center;
+  background: rgba(3, 3, 6, 0.74);
 }
 
-.vp-error-overlay h3 {
-  color: #f87171;
-  font-size: 15px;
-  font-weight: 600;
+.vidion-player-error h3 {
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 700;
 }
 
-.vp-error-overlay p {
-  color: rgba(255,255,255,0.55);
-  font-size: 13px;
-  max-width: 300px;
+.vidion-player-error p {
+  color: var(--vidion-text-muted);
+  max-width: 24rem;
+  font-size: 0.92rem;
 }
 
-.vp-retry-btn {
-  margin-top: 4px;
-  padding: 8px 20px;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 500;
+.vidion-error-button {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.12));
+  color: white;
+  border: 1px solid rgba(99, 102, 241, 0.24);
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  font-weight: 650;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: all 160ms ease;
 }
 
-.vp-retry-btn:hover {
-  background: rgba(255,255,255,0.18);
+.vidion-error-button:hover,
+.vidion-error-button:focus-visible {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.28), rgba(99, 102, 241, 0.18));
+  border-color: rgba(99, 102, 241, 0.36);
+  outline: none;
 }
 
-/* ─── Title bar ──────────────────────────────── */
-
-.vp-title-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 14px 16px 10px;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  z-index: 10;
-}
-
-.vp-title-text {
-  font-size: 14px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.95);
-  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
-  line-clamp: 1;
-  -webkit-line-clamp: 1;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-}
-
-/* ─── Theater mode ───────────────────────────── */
-
-.vp-theater-container {
+.vidion-theater-shell {
   position: fixed;
   inset: 0;
-  z-index: 100;
-  background: #000;
+  z-index: 120;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
+  background: rgba(0, 0, 0, 0.94);
 }
 
-.vp-theater-container .vp-root {
-  width: 100%;
+.vidion-theater-shell .vidion-player {
+  width: min(100vw, 100%);
   max-width: 100vw;
   border-radius: 0;
+  box-shadow: none;
 }
 
-/* ─── Captions ───────────────────────────────── */
+@media (max-width: 900px) {
+  .vidion-controls-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
 
-.vp-captions {
-  position: absolute;
-  bottom: 70px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 90%;
-  text-align: center;
-  pointer-events: none;
-  z-index: 15;
+  .vidion-controls-group-center {
+    justify-content: flex-start;
+    order: -1;
+  }
+
+  .vidion-controls-group-right {
+    justify-content: flex-start;
+  }
 }
 
-.vp-caption-cue {
-  display: inline-block;
-  background: rgba(0,0,0,0.75);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.5;
-  padding: 4px 10px;
-  border-radius: 4px;
-  white-space: pre-wrap;
+@media (max-width: 640px) {
+  .vidion-progress-preview {
+    max-width: 180px;
+    padding: 7px;
+  }
+
+  .vidion-player {
+    border-radius: 18px;
+  }
+
+  .vidion-controls-bottom {
+    padding: 0 10px 10px;
+  }
+
+  .vidion-controls-row {
+    padding: 10px;
+    border-radius: 16px;
+  }
+
+  .vidion-icon-button,
+  .vidion-chip-button {
+    height: 38px;
+  }
+
+  .vidion-icon-button {
+    width: 38px;
+  }
+
+  .vidion-volume-slider-shell {
+    width: 68px;
+  }
+
+  .vidion-watermark {
+    right: 10px;
+    bottom: 10px;
+    padding: 6px 9px;
+  }
+
+  .vidion-watermark-logo {
+    width: 138px;
+    height: 28px;
+  }
+
+  .vidion-player.controls-visible .vidion-watermark {
+    bottom: 132px;
+  }
+
+  .vidion-skip-flash.is-left {
+    left: 4%;
+  }
+
+  .vidion-skip-flash.is-right {
+    right: 4%;
+  }
 }
 
-/* Quality switching toast */
-.vp-quality-toast {
-  position: absolute;
-  top: 14px;
-  right: 16px;
-  background: rgba(15, 15, 20, 0.88);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 12px;
-  border-radius: 8px;
-  z-index: 40;
-  animation: vp-popup-in 0.2s ease;
-  pointer-events: none;
+@media (prefers-reduced-motion: reduce) {
+  .vidion-player *,
+  .vidion-player *::before,
+  .vidion-player *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
-/* ─── Responsive ─────────────────────────────── */
+/* ─── Global Mini Player ──────────────────────────────────────────────────── */
 
-@media (max-width: 480px) {
-  .vp-btn { width: 30px; height: 30px; }
-  .vp-time { font-size: 10px; }
-  .vp-volume-group:hover .vp-volume-slider-wrap { width: 56px; }
-  .vp-volume-slider { width: 52px; }
-  .vp-popup { min-width: 140px; right: 6px; bottom: 50px; }
-  .vp-title-text { font-size: 12px; }
+/* When GlobalPlayer wraps VideoPlayer in mini mode, suppress the normal
+   rounded corners + background from the player itself — the container
+   handles all that. */
+[data-global-player] .vidion-player {
+  border-radius: 0;
+  box-shadow: none;
+  background: #000;
 }
 
-/* ─── PiP overlay indicator ─────────────────── */
-
-.vp-pip-indicator {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: rgba(0,0,0,0.8);
-  color: rgba(255,255,255,0.7);
-  font-size: 14px;
-  font-weight: 500;
-  pointer-events: none;
-  z-index: 25;
+/* In mini mode the container is a fixed 320×180px box.
+   .vidion-player has no intrinsic height (it's driven by aspect-ratio in
+   normal mode), so we must tell it to fill the container explicitly —
+   otherwise .vidion-player-stage { height: 100% } resolves to zero. */
+[data-global-player][data-mini] .vidion-player {
+  height: 100%;
 }
 
-/* ─── Native WebVTT caption styling (::cue) ─── */
-/* These target the browser's built-in track renderer                         */
-
-.vp-video::cue {
-  background-color: rgba(0, 0, 0, 0.78);
-  color: #ffffff;
-  font-family: "Inter", "Segoe UI", Arial, sans-serif;
-  font-size: 1.05em;
-  font-weight: 500;
-  line-height: 1.4;
-  border-radius: 3px;
-  padding: 0.1em 0.35em;
-  text-shadow: none;
+/* Hide the Vidion watermark inside the mini player — it's too large and
+   clutters the tiny 320×180 frame. */
+[data-global-player][data-mini] .vidion-watermark {
+  display: none !important;
 }
 
-.vp-video::cue(b)  { font-weight: 700; }
-.vp-video::cue(i)  { font-style: italic; }
-.vp-video::cue(u)  { text-decoration: underline; }
+/* In mini mode the stage fills the full container without aspect-ratio
+   constraints — the outer div IS already 16:9 (320×180). */
+[data-global-player] .vidion-player-stage {
+  aspect-ratio: unset;
+  height: 100%;
+}
 
-/* Caption active indicator on the CC button */
-.vp-btn[data-captions-on="true"] {
-  color: #22c55e;
+/* Keep the controls toolbar readable inside the tiny mini player. */
+[data-global-player] .vidion-controls {
+  /* Mini player has its own overlay; hide the built-in controls. */
+  display: none !important;
+}
+
+/* … except when not in mini mode (GlobalPlayer forwards isMiniPlayer via
+   a data attribute we set below) */
+[data-global-player]:not([data-mini]) .vidion-controls {
+  display: flex !important;
+}
+
+/* In slot (normal) mode, restore the player's rounded corners. */
+[data-global-player]:not([data-mini]) .vidion-player {
+  border-radius: 20px;
+  box-shadow: var(--vidion-shadow);
+}
+
+[data-global-player]:not([data-mini]) .vidion-player-stage {
+  aspect-ratio: 16 / 9;
+  height: auto;
+}
+
+/* Mini player enter/leave animation */
+@keyframes miniPlayerIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes miniPlayerOut {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.85) translateY(20px);
+  }
+}
+
+[data-global-player][data-mini] {
+  animation: miniPlayerIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ─── Draggable mini player ────────────────────────────────────────────────── */
+
+/* Default grab cursor on the mini player container when not dragging. */
+[data-global-player][data-mini] {
+  cursor: grab;
+}
+
+/* Grabbing cursor while actively dragging. */
+[data-global-player][data-mini][data-dragging] {
+  cursor: grabbing;
+  /* Disable pointer-events on children so hover states don't flicker. */
+  user-select: none;
+}
+
+/* Controls zone resets the cursor so buttons feel normal. */
+[data-global-player][data-mini] button {
+  cursor: pointer;
+}
+[data-global-player][data-mini] [role="slider"] {
+  cursor: pointer;
 }

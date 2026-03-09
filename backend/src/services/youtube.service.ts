@@ -51,6 +51,22 @@ export interface FormatMetadata {
   hasVideo: boolean;
 }
 
+export interface ChapterInfo {
+  time: number;
+  label: string;
+}
+
+export interface StoryboardInfo {
+  templateUrl: string;
+  thumbnailWidth: number;
+  thumbnailHeight: number;
+  thumbnailCount: number;
+  columns: number;
+  rows: number;
+  storyboardCount: number;
+  interval: number;
+}
+
 export interface VideoDetails {
   id: string;
   title: string;
@@ -68,6 +84,9 @@ export interface VideoDetails {
   isLive: boolean;
   formats: FormatMetadata[];
   captions: CaptionTrackInfo[];
+  chapters: ChapterInfo[];
+  storyboardSpec: string | null;
+  storyboard: StoryboardInfo | null;
 }
 
 export interface CaptionTrackInfo {
@@ -148,6 +167,19 @@ function getThumbnails(item: unknown): VideoThumbnail[] {
     width: t.width ?? 0,
     height: t.height ?? 0,
   }));
+}
+
+function getNestedValue(source: unknown, path: Array<string | number>): unknown {
+  return path.reduce<unknown>((current, key) => {
+    if (current == null) return undefined;
+    if (typeof key === "number") {
+      return Array.isArray(current) ? current[key] : undefined;
+    }
+    if (typeof current === "object") {
+      return (current as Record<string, unknown>)[key];
+    }
+    return undefined;
+  }, source);
 }
 
 function getVideoId(item: any): string | null {
@@ -328,8 +360,68 @@ function extractCaptions(info: any, videoId: string): CaptionTrackInfo[] {
   }
 }
 
+function extractChapters(info: any): ChapterInfo[] {
+  const rawChapters = [
+    getNestedValue(info, ["player_overlays", "decorated_player_bar", "player_bar", "markers_map", 0, "value", "chapters"]),
+    getNestedValue(info, ["playerOverlays", "decoratedPlayerBar", "playerBar", "markersMap", 0, "value", "chapters"]),
+    getNestedValue(info, ["player_response", "playerOverlays", "decoratedPlayerBar", "playerBar", "markersMap", 0, "value", "chapters"]),
+  ].find(Array.isArray) as any[] | undefined;
+
+  if (!rawChapters || rawChapters.length === 0) return [];
+
+  return rawChapters
+    .map((item) => ({
+      time: Math.floor(Number(getNestedValue(item, ["time_range_start_millis"]) ?? 0) / 1000),
+      label: getText(getNestedValue(item, ["title"]) ?? getNestedValue(item, ["chapter_title"]) ?? "").trim(),
+    }))
+    .filter((chapter, index, list) => chapter.time >= 0 && chapter.label && list.findIndex((item) => item.time === chapter.time) === index)
+    .sort((a, b) => a.time - b.time);
+}
+
+function extractStoryboard(info: any): StoryboardInfo | null {
+  const board =
+    getNestedValue(info, ["storyboards", "boards", 0]) ??
+    getNestedValue(info, ["player_response", "storyboards", "boards", 0]);
+
+  if (!board || typeof board !== "object") return null;
+
+  const templateUrl = String(getNestedValue(board, ["template_url"]) ?? "");
+  const thumbnailWidth = Number(getNestedValue(board, ["thumbnail_width"]) ?? 0);
+  const thumbnailHeight = Number(getNestedValue(board, ["thumbnail_height"]) ?? 0);
+  const thumbnailCount = Number(getNestedValue(board, ["thumbnail_count"]) ?? 0);
+  const columns = Number(getNestedValue(board, ["columns"]) ?? 0);
+  const rows = Number(getNestedValue(board, ["rows"]) ?? 0);
+  const storyboardCount = Number(getNestedValue(board, ["storyboard_count"]) ?? 0);
+  const interval = Number(getNestedValue(board, ["interval"]) ?? 0);
+
+  if (!templateUrl || thumbnailWidth <= 0 || thumbnailHeight <= 0 || columns <= 0 || rows <= 0) {
+    return null;
+  }
+
+  return {
+    templateUrl,
+    thumbnailWidth,
+    thumbnailHeight,
+    thumbnailCount,
+    columns,
+    rows,
+    storyboardCount,
+    interval,
+  };
+}
+
+function extractStoryboardSpec(info: any): string | null {
+  const spec =
+    getNestedValue(info, ["player_response", "storyboards", "playerStoryboardSpecRenderer", "spec"]) ??
+    getNestedValue(info, ["player_response", "storyboards", "playerLiveStoryboardSpecRenderer", "spec"]) ??
+    getNestedValue(info, ["storyboards", "playerStoryboardSpecRenderer", "spec"]) ??
+    getNestedValue(info, ["storyboards", "playerLiveStoryboardSpecRenderer", "spec"]);
+
+  return typeof spec === "string" && spec.trim().length > 0 ? spec : null;
+}
+
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
-  const cacheKey = `yt:video:${videoId}`;
+  const cacheKey = `yt:video:v2:${videoId}`;
   const cached = await getCachedData<VideoDetails>(cacheKey);
   if (cached) return cached;
 
@@ -371,6 +463,9 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
     isLive: basic.is_live ?? false,
     formats,
     captions: extractCaptions(info, videoId),
+    chapters: extractChapters(info),
+    storyboardSpec: extractStoryboardSpec(info),
+    storyboard: extractStoryboard(info),
   };
 
   await setCachedData(cacheKey, details, 300);
@@ -507,18 +602,39 @@ export async function getRelatedVideos(videoId: string): Promise<VideoCardData[]
 }
 
 // ---------------------------------------------------------------------------
-// Comments
+// Comments — paginated via in-memory continuation cache
 // ---------------------------------------------------------------------------
 
-export async function getComments(videoId: string): Promise<CommentData[]> {
-  const cacheKey = `yt:comments:${videoId}`;
-  const cached = await getCachedData<CommentData[]>(cacheKey);
-  if (cached) return cached;
+// Continuation cache: stores Comments objects keyed by `${videoId}:${sort}:${page}`
+// so that page N+1 can call getContinuation() on page N's object.
+// TTL of 10 minutes; cleaned up passively.
+interface ContinuationEntry {
+  obj: any; // youtubei.js Comments instance
+  expiresAt: number;
+}
+const _contCache = new Map<string, ContinuationEntry>();
+const CONT_TTL_MS = 10 * 60 * 1000;
 
-  const yt = await getInnertube();
-  const commentsThread = await yt.getComments(videoId, "TOP_COMMENTS");
+function setCont(key: string, obj: any) {
+  _contCache.set(key, { obj, expiresAt: Date.now() + CONT_TTL_MS });
+  // Passive GC: prune stale entries
+  if (_contCache.size > 500) {
+    const now = Date.now();
+    for (const [k, v] of _contCache) {
+      if (v.expiresAt < now) _contCache.delete(k);
+    }
+  }
+}
 
-  const comments: CommentData[] = (commentsThread.contents ?? []).slice(0, 30).map((c: any) => {
+function getCont(key: string): any | null {
+  const entry = _contCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt < Date.now()) { _contCache.delete(key); return null; }
+  return entry.obj;
+}
+
+function mapComments(thread: any): CommentData[] {
+  return (thread.contents ?? []).map((c: any) => {
     const comment = c.comment ?? c;
     return {
       id: comment.comment_id ?? "",
@@ -533,9 +649,59 @@ export async function getComments(videoId: string): Promise<CommentData[]> {
       isCreator: comment.is_member ?? false,
     };
   });
+}
 
-  await setCachedData(cacheKey, comments, 180);
-  return comments;
+export async function getComments(
+  videoId: string,
+  sort: "TOP_COMMENTS" | "NEWEST_FIRST" = "TOP_COMMENTS",
+  page = 0,
+): Promise<{ comments: CommentData[]; hasMore: boolean; totalCount: string | null }> {
+  const pageKey = `${videoId}:${sort}:${page}`;
+
+  // Page 0 — try Redis cache first
+  if (page === 0) {
+    const cacheKey = `yt:comments:${videoId}:${sort}`;
+    const cached = await getCachedData<{ comments: CommentData[]; hasMore: boolean; totalCount: string | null }>(cacheKey);
+    if (cached) return cached;
+
+    const yt = await getInnertube();
+    const thread = await yt.getComments(videoId, sort);
+    const comments = mapComments(thread);
+
+    // Store the thread object for continuation on page 1
+    if (thread.has_continuation) {
+      setCont(pageKey, thread);
+    }
+
+    // Extract total comment count from header if available
+    const totalCount = getText((thread.header as any)?.title) || null;
+
+    const result = { comments, hasMore: thread.has_continuation ?? false, totalCount };
+    await setCachedData(cacheKey, result, 180);
+    return result;
+  }
+
+  // Page > 0 — need the previous page's continuation object
+  const prevKey = `${videoId}:${sort}:${page - 1}`;
+  const prevThread = getCont(prevKey);
+
+  if (!prevThread) {
+    // Previous page evicted — client must restart from page 0
+    throw new Error("CONTINUATION_EXPIRED");
+  }
+
+  if (!prevThread.has_continuation) {
+    return { comments: [], hasMore: false, totalCount: null };
+  }
+
+  const thread = await prevThread.getContinuation();
+  const comments = mapComments(thread);
+
+  if (thread.has_continuation) {
+    setCont(pageKey, thread);
+  }
+
+  return { comments, hasMore: thread.has_continuation ?? false, totalCount: null };
 }
 
 // ---------------------------------------------------------------------------

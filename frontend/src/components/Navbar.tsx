@@ -5,14 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import {
   Search,
-  Bell,
-  Upload,
   Menu,
   User,
   LogIn,
   Library,
   X,
-  Mic,
   ArrowLeft,
   Clock,
   TrendingUp,
@@ -28,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useAuth } from "@/contexts/auth-context";
 
 // ── Recent searches (persisted in localStorage) ─────────────────────────
 function getRecentSearches(): string[] {
@@ -67,8 +65,11 @@ export function Navbar() {
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const recentSearches = getRecentSearches();
+  const { isAuthenticated, user, logout } = useAuth();
 
   const showDropdown = focused && query.length === 0;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -112,26 +113,28 @@ export function Navbar() {
       <div className="mx-auto flex h-14 max-w-[1800px] items-center gap-4 px-4 lg:px-6">
         {/* Left — hamburger + logo */}
         <div className="flex shrink-0 items-center gap-2">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-white/50 hover:text-white lg:hidden">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-72 bg-[#0f0f0f] border-white/10">
-              <nav className="mt-8 space-y-1">
-                {["Home", "Trending", "Subscriptions", "Library"].map((item) => (
-                  <Link
-                    key={item}
-                    href={item === "Home" ? "/" : `/${item.toLowerCase()}`}
-                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/70 transition hover:bg-white/5 hover:text-white"
-                  >
-                    {item}
-                  </Link>
-                ))}
-              </nav>
-            </SheetContent>
-          </Sheet>
+          {mounted && (
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-white/50 hover:text-white lg:hidden">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-72 bg-[#0f0f0f] border-white/10">
+                <nav className="mt-8 space-y-1">
+                  {["Home", "Trending", "Subscriptions", "Library"].map((item) => (
+                    <Link
+                      key={item}
+                      href={item === "Home" ? "/" : `/${item.toLowerCase()}`}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/70 transition hover:bg-white/5 hover:text-white"
+                    >
+                      {item}
+                    </Link>
+                  ))}
+                </nav>
+              </SheetContent>
+            </Sheet>
+          )}
           <Logo size="md" />
         </div>
 
@@ -184,15 +187,6 @@ export function Navbar() {
                 <Search className="h-[18px] w-[18px]" />
               </button>
             </form>
-
-            {/* Mic button */}
-            <button
-              type="button"
-              className="absolute -right-12 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[#222] text-white/50 transition hover:bg-[#333] hover:text-white"
-              title="Voice search"
-            >
-              <Mic className="h-[18px] w-[18px]" />
-            </button>
 
             {/* ── Search dropdown ─────────────────────────────────────── */}
             {showDropdown && (
@@ -257,42 +251,46 @@ export function Navbar() {
             <Search className="h-5 w-5" />
           </Button>
 
-          <Link href="/upload" className="hidden sm:block">
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-white/50 hover:text-white">
-              <Upload className="h-5 w-5" />
-            </Button>
-          </Link>
-
-          <Button variant="ghost" size="icon" className="relative h-9 w-9 text-white/50 hover:text-white">
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[#0f0f0f]" />
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          {/* If user is authenticated show avatar dropdown, otherwise show Sign In button */}
+          {isAuthenticated ? (
+            mounted ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+                    <Avatar className="h-8 w-8 ring-2 ring-white/10 transition hover:ring-violet-500/40">
+                      <AvatarImage src={user?.avatar ?? ""} />
+                      <AvatarFallback className="bg-violet-600 text-xs font-bold text-white">{user?.name?.[0] ?? "U"}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-[#1a1a1a] border-white/10">
+                  <DropdownMenuItem className="text-white/80 focus:text-white focus:bg-white/5">
+                    <User className="mr-2 h-4 w-4" />
+                    Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-white/80 focus:text-white focus:bg-white/5">
+                    <Library className="mr-2 h-4 w-4" />
+                    My Videos
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuItem onClick={async () => { await logout(); router.push('/'); }} className="text-white/80 focus:text-white focus:bg-white/5">
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
               <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
                 <Avatar className="h-8 w-8 ring-2 ring-white/10 transition hover:ring-violet-500/40">
-                  <AvatarImage src="" />
-                  <AvatarFallback className="bg-violet-600 text-xs font-bold text-white">V</AvatarFallback>
+                  <AvatarImage src={user?.avatar ?? ""} />
+                  <AvatarFallback className="bg-violet-600 text-xs font-bold text-white">{user?.name?.[0] ?? "U"}</AvatarFallback>
                 </Avatar>
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 bg-[#1a1a1a] border-white/10">
-              <DropdownMenuItem className="text-white/80 focus:text-white focus:bg-white/5">
-                <User className="mr-2 h-4 w-4" />
-                Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-white/80 focus:text-white focus:bg-white/5">
-                <Library className="mr-2 h-4 w-4" />
-                My Videos
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem className="text-white/80 focus:text-white focus:bg-white/5">
-                <LogIn className="mr-2 h-4 w-4" />
-                Sign In
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            )
+          ) : (
+            <Button asChild variant="ghost" size="sm" className="ml-2 hidden sm:inline-flex">
+              <Link href="/auth/login">Sign In</Link>
+            </Button>
+          )}
         </div>
       </div>
 

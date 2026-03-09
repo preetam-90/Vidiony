@@ -19,10 +19,18 @@ const nextConfig: NextConfig = {
   // and the proxy URL returned by the stream endpoint works without modification.
   async rewrites() {
     return [
+      // ⚠️ More specific rules FIRST — /api/v2/* must come before /api/*
+      // All new backend routes (auth, search, trending, videos, user, live, channels)
+      {
+        source: "/api/v2/:path*",
+        destination: `${BACKEND}/:path*`,
+      },
+      // Legacy youtubei.js routes
       {
         source: "/api/:path*",
         destination: `${BACKEND}/api/:path*`,
       },
+      // CORS-safe proxy for YouTube CDN URLs
       {
         source: "/proxy/:path*",
         destination: `${BACKEND}/proxy/:path*`,

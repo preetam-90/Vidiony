@@ -111,9 +111,9 @@ const youtubeModuleRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: parsed.error.flatten() });
     }
     try {
-      const comments = await ytService.getComments(parsed.data.id);
+      const { comments, hasMore, totalCount } = await ytService.getComments(parsed.data.id, "TOP_COMMENTS", 0);
       reply.header("Cache-Control", "public, s-maxage=180, stale-while-revalidate=300");
-      return reply.send({ comments });
+      return reply.send({ comments, hasMore, totalCount });
     } catch (err: any) {
       fastify.log.error(err, "Comments error");
       return reply.status(500).send({ error: err?.message ?? "Failed to fetch comments" });

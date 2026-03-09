@@ -1,93 +1,48 @@
+/**
+ * Application entry point.
+ * Loads environment, builds the Fastify app, and starts the HTTP server.
+ */
+
 import "dotenv/config";
-import Fastify from "fastify";
-import cors from "@fastify/cors";
-import jwt from "@fastify/jwt";
-import multipart from "@fastify/multipart";
-import fastifyStatic from "@fastify/static";
-import { authRoutes } from "./routes/auth.js";
-import { videoRoutes } from "./routes/videos.js";
-import { userRoutes } from "./routes/users.js";
-import { connectDB } from "./utils/db.js";
-import path from "path";
-import { fileURLToPath } from "url";
+import { env } from "./config/env.js";
+import { buildApp } from "./app.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const app = await buildApp();
 
-const fastify = Fastify({
-  logger: true,
-});
-
-// Register plugins
-await fastify.register(cors, {
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
-  credentials: true,
-});
-
-await fastify.register(jwt, {
-  secret: process.env.JWT_SECRET || "your-secret-key",
-  sign: {
-    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-  },
-});
-
-await fastify.register(multipart, {
-  limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE || "2147483648"), // 2GB default
-  },
-});
-
-await fastify.register(fastifyStatic, {
-  root: path.join(__dirname, "uploads"),
-  prefix: "/uploads/",
-});
-
-// Decorate fastify with authenticate function
-fastify.decorate("authenticate", async function (request: any, reply: any) {
-  try {
-    await request.jwtVerify();
-  } catch (err) {
-    reply.status(401).send({ message: "Unauthorized" });
-  }
-});
-
-// Health check route
-fastify.get("/health", async () => {
-  return { status: "ok", timestamp: new Date().toISOString() };
-});
-
-import youtubeModuleRoutes from "./modules/youtube/youtube.routes.js";
-import proxyRoutes from "./routes/proxy.js";
-import redisPlugin from "./plugins/redis.js";
-
-// Register plugins & routes
-await fastify.register(redisPlugin);
-
-// App routes
-fastify.register(authRoutes,          { prefix: "/api/auth" });
-fastify.register(videoRoutes,         { prefix: "/api/videos" });
-fastify.register(userRoutes,          { prefix: "/api/users" });
-
-// YouTube / InnerTube routes
-fastify.register(youtubeModuleRoutes, { prefix: "/api/yt" });
-
-// Byte-streaming CORS proxy — used by the frontend <video> element
-fastify.register(proxyRoutes,         { prefix: "/proxy" });
-
-// Start server
 const start = async () => {
   try {
-    // Connect to database (TEMPORARILY DISABLED FOR YOUTUBE API)
-    // await connectDB();
+    const address = await app.listen({
+      port: env.PORT,
+      host: "0.0.0.0",
+    });
 
-    const port = parseInt(process.env.PORT || "4000", 10);
-    await fastify.listen({ port, host: "0.0.0.0" });
-    console.log(`Server running on http://localhost:${port}`);
+    app.log.info(`🎬 Vidion backend listening at ${address}`);
+    app.log.info(`   Health: ${address}/health`);
+    app.log.info(`   Metrics: ${address}/metrics`);
+    app.log.info(`   YouTube API: ${address}/api/yt`);
+    app.log.info(`   ENV: ${env.NODE_ENV}`);
   } catch (err) {
-    fastify.log.error(err);
+    app.log.error(err, "Failed to start server");
     process.exit(1);
   }
 };
 
-start();
+// Graceful shutdown
+const shutdown = async (signal: string) => {
+  app.log.info(`${signal} received, shutting down gracefully...`);
+  await app.close();
+  process.exit(0);
+};
 
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("uncaughtException", (err) => {
+  app.log.error(err, "Uncaught exception");
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  app.log.error({ reason }, "Unhandled promise rejection");
+  process.exit(1);
+});
+
+await start();

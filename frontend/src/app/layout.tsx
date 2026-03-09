@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import { Providers } from "./providers";
+import { GlobalPlayer } from "@/components/player/GlobalPlayer";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -44,6 +46,11 @@ export default function RootLayout({
           </div>
           <Providers>
             {children}
+            {/* GlobalPlayer lives outside the page tree so it never unmounts.
+                The <video> element persists across all navigations, enabling
+                the mini-player to keep playing while the user browses. */}
+            <GlobalPlayer />
+            <Toaster richColors position="bottom-right" />
           </Providers>
         </div>
       </body>

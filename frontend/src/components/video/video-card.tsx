@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -47,6 +49,7 @@ export function VideoCard({
     return count.toString();
   };
 
+
   return (
     <Link href={`/video/${id}`} className="group block">
       <div className="relative overflow-hidden rounded-xl bg-card transition-all duration-300 hover:shadow-lg hover:shadow-primary/10">
@@ -56,8 +59,10 @@ export function VideoCard({
             src={thumbnail}
             alt={title}
             fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            className="object-cover"
+            draggable={false}
           />
+
           {/* Duration Badge */}
           <div className="absolute bottom-2 right-2 rounded-md bg-black/80 px-1.5 py-0.5 text-xs font-medium text-white">
             {duration}

@@ -1,22 +1,71 @@
 "use client";
 
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRelatedVideos } from "@/hooks/useYoutube";
+import { useRelatedVideos, useSearch } from "@/hooks/useYoutube";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Play, Clock } from "lucide-react";
 
 interface RelatedVideosProps {
   videoId: string;
+  fallbackQuery?: string;
 }
+
+const INITIAL_BATCH = 8;
+const LOAD_MORE_BATCH = 8;
 
 function getBestThumb(thumbnails: { url: string; width: number; height: number }[]) {
   if (!thumbnails?.length) return null;
-  // Pick medium resolution or last
   return thumbnails.find((t) => t.width >= 320) ?? thumbnails[thumbnails.length - 1];
 }
 
-export function RelatedVideos({ videoId }: RelatedVideosProps) {
-  const { data: videos, isLoading } = useRelatedVideos(videoId);
+export function RelatedVideos({ videoId, fallbackQuery = "" }: RelatedVideosProps) {
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH);
+
+  const { data: relatedVideos, isLoading: isLoadingRelated } = useRelatedVideos(videoId);
+  const { data: searchedVideos, isLoading: isLoadingSearch } = useSearch(fallbackQuery);
+
+  const fallbackVideos = useMemo(
+    () => searchedVideos?.filter((video) => video.id !== videoId) ?? [],
+    [searchedVideos, videoId]
+  );
+
+  const allVideos = useMemo(
+    () => (relatedVideos?.length ? relatedVideos : fallbackVideos),
+    [relatedVideos, fallbackVideos]
+  );
+
+  const recommendedVideos = allVideos.slice(0, visibleCount);
+  const hasMore = visibleCount < allVideos.length;
+  const isLoading = isLoadingRelated || (!relatedVideos?.length && !!fallbackQuery && isLoadingSearch);
+  const heading = relatedVideos?.length ? "Recommended Videos" : "More to watch";
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_BATCH);
+  }, [videoId, fallbackQuery, relatedVideos?.length, fallbackVideos.length]);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry?.isIntersecting) return;
+
+        setVisibleCount((current) => Math.min(current + LOAD_MORE_BATCH, allVideos.length));
+      },
+      {
+        root: null,
+        rootMargin: "300px 0px",
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [allVideos.length, hasMore]);
 
   if (isLoading) {
     return (
@@ -35,46 +84,48 @@ export function RelatedVideos({ videoId }: RelatedVideosProps) {
     );
   }
 
-  if (!videos?.length) return null;
+  if (!recommendedVideos.length) return null;
 
   return (
     <div>
-      <h3 className="mb-3 font-semibold">Related Videos</h3>
+      <h3 className="mb-3 font-semibold">{heading}</h3>
       <div className="space-y-3">
-        {videos.map((video) => {
+        {recommendedVideos.map((video) => {
           const thumb = getBestThumb(video.thumbnails);
           return (
             <Link
               key={video.id}
               href={`/watch/${video.id}`}
-              className="flex gap-2 group"
+              className="group flex gap-2"
             >
               <div className="relative aspect-video w-40 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
                 {thumb ? (
                   <img
                     src={thumb.url}
                     alt={video.title}
-                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                 ) : (
-                  <div className="h-full w-full flex items-center justify-center text-muted-foreground">
+                  <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                     <Play className="h-6 w-6" />
                   </div>
                 )}
                 {video.duration && (
-                  <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[10px] text-white font-medium">
+                  <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[10px] font-medium text-white">
                     {video.duration}
                   </span>
                 )}
               </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="line-clamp-2 text-sm font-medium group-hover:text-primary transition-colors">
+              <div className="min-w-0 flex-1">
+                <h4 className="line-clamp-2 text-sm font-medium transition-colors group-hover:text-primary">
                   {video.title}
                 </h4>
-                <p className="mt-1 text-xs text-muted-foreground truncate">
+                <p className="mt-1 truncate text-xs text-muted-foreground">
                   {video.channelName}
                 </p>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                   {video.viewCount && <span>{video.viewCount} views</span>}
                   {video.publishedAt && (
                     <>
@@ -90,6 +141,20 @@ export function RelatedVideos({ videoId }: RelatedVideosProps) {
             </Link>
           );
         })}
+
+        {hasMore && (
+          <div ref={loadMoreRef} className="space-y-3 pt-1">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex gap-2 opacity-70">
+                <Skeleton className="aspect-video w-40 rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-3 w-2/3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
-import { useEffect, useCallback } from "react";
+import { useCallback, useEffect } from "react";
 
-const SPEED_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
+const SPEED_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
 interface UsePlayerKeyboardOptions {
   enabled: boolean;
@@ -10,6 +10,7 @@ interface UsePlayerKeyboardOptions {
   onFullscreen: () => void;
   onCaptionToggle: () => void;
   onSpeedChange: (rate: number) => void;
+  onVolumeStep: (delta: number) => void;
   getCurrentSpeed: () => number;
 }
 
@@ -21,89 +22,98 @@ export function usePlayerKeyboard({
   onFullscreen,
   onCaptionToggle,
   onSpeedChange,
+  onVolumeStep,
   getCurrentSpeed,
 }: UsePlayerKeyboardOptions) {
-  const handleKey = useCallback(
-    (e: KeyboardEvent) => {
-      if (!enabled) return;
+  const handleKey = useCallback((event: KeyboardEvent) => {
+    if (!enabled) return;
 
-      // Don't capture when user is typing in an input/textarea
-      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select") return;
+    const target = event.target as HTMLElement | null;
+    const tag = target?.tagName?.toLowerCase();
+    const isTypingTarget = tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable;
+    if (isTypingTarget) return;
 
-      const speed = getCurrentSpeed();
-      const idx = SPEED_STEPS.indexOf(speed);
+    const currentSpeed = getCurrentSpeed();
+    const speedIndex = SPEED_STEPS.indexOf(currentSpeed);
 
-      switch (e.key) {
-        case " ":
-        case "k":
-        case "K":
-          e.preventDefault();
-          onPlayPause();
-          break;
+    switch (event.key) {
+      case " ":
+      case "k":
+      case "K":
+        event.preventDefault();
+        onPlayPause();
+        break;
 
-        case "j":
-        case "J":
-          e.preventDefault();
-          onSeek(-10);
-          break;
+      case "j":
+      case "J":
+        event.preventDefault();
+        onSeek(-10);
+        break;
 
-        case "l":
-        case "L":
-          e.preventDefault();
-          onSeek(10);
-          break;
+      case "l":
+      case "L":
+        event.preventDefault();
+        onSeek(10);
+        break;
 
-        case "ArrowRight":
-          e.preventDefault();
-          onSeek(5);
-          break;
+      case "ArrowRight":
+        event.preventDefault();
+        onSeek(10);
+        break;
 
-        case "ArrowLeft":
-          e.preventDefault();
-          onSeek(-5);
-          break;
+      case "ArrowLeft":
+        event.preventDefault();
+        onSeek(-10);
+        break;
 
-        case "f":
-        case "F":
-          e.preventDefault();
-          onFullscreen();
-          break;
+      case "ArrowUp":
+        event.preventDefault();
+        onVolumeStep(0.05);
+        break;
 
-        case "m":
-        case "M":
-          e.preventDefault();
-          onVolumeToggle();
-          break;
+      case "ArrowDown":
+        event.preventDefault();
+        onVolumeStep(-0.05);
+        break;
 
-        case "c":
-        case "C":
-          e.preventDefault();
-          onCaptionToggle();
-          break;
+      case "f":
+      case "F":
+        event.preventDefault();
+        onFullscreen();
+        break;
 
-        case ">":
-          if (e.shiftKey) {
-            e.preventDefault();
-            const next = SPEED_STEPS[Math.min(idx + 1, SPEED_STEPS.length - 1)];
-            onSpeedChange(next);
-          }
-          break;
+      case "m":
+      case "M":
+        event.preventDefault();
+        onVolumeToggle();
+        break;
 
-        case "<":
-          if (e.shiftKey) {
-            e.preventDefault();
-            const prev = SPEED_STEPS[Math.max(idx - 1, 0)];
-            onSpeedChange(prev);
-          }
-          break;
+      case "c":
+      case "C":
+        event.preventDefault();
+        onCaptionToggle();
+        break;
 
-        default:
-          break;
-      }
-    },
-    [enabled, onPlayPause, onSeek, onVolumeToggle, onFullscreen, onCaptionToggle, onSpeedChange, getCurrentSpeed]
-  );
+      case ">":
+        if (event.shiftKey) {
+          event.preventDefault();
+          const nextSpeed = SPEED_STEPS[Math.min(speedIndex + 1, SPEED_STEPS.length - 1)];
+          onSpeedChange(nextSpeed);
+        }
+        break;
+
+      case "<":
+        if (event.shiftKey) {
+          event.preventDefault();
+          const previousSpeed = SPEED_STEPS[Math.max(speedIndex - 1, 0)];
+          onSpeedChange(previousSpeed);
+        }
+        break;
+
+      default:
+        break;
+    }
+  }, [enabled, getCurrentSpeed, onCaptionToggle, onFullscreen, onPlayPause, onSeek, onSpeedChange, onVolumeStep, onVolumeToggle]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKey);
