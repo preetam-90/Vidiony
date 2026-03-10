@@ -6,7 +6,7 @@ import {
   Search, Menu, User, LogIn,
   Home, TrendingUp, Clock, Library, LogOut,
   Youtube, ChevronDown, History, BookMarked,
-  CheckCircle, X,
+  CheckCircle, X, Settings,
 } from "lucide-react";
 import { Logo } from "@/components/layout/logo";
 import { Button } from "@/components/ui/button";
@@ -211,6 +211,11 @@ export function Navbar() {
                   <DropdownMenuItem asChild>
                     <Link href="/subscriptions" className="gap-2">
                       <BookMarked className="h-4 w-4" /> Subscriptions
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings/security" className="gap-2">
+                      <Settings className="h-4 w-4" /> Security
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-white/10" />

@@ -388,6 +388,49 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       tokenValid: tokens !== null,
     });
   });
+
+  // ─── Session management endpoints ─────────────────────────────────────────
+  fastify.get("/sessions", { preHandler: [fastify.authenticate] }, async (req, reply) => {
+    const sessions = await getUserSessions(fastify.prisma, req.user!.id);
+    return reply.send({ success: true, sessions });
+  });
+
+  fastify.delete("/session/:id", { preHandler: [fastify.authenticate] }, async (req: any, reply) => {
+    const id = req.params.id as string;
+
+    // Ensure session exists and belongs to user
+    const session = await fastify.prisma.userSession.findUnique({ where: { id }, select: { id: true, userId: true, tokenHash: true } });
+    if (!session || session.userId !== req.user!.id) {
+      return reply.status(404).send({ success: false, error: { code: "NOT_FOUND", message: "Session not found" } });
+    }
+
+    // Determine if this session is the current client's session (compare cookie)
+    let isCurrent = false;
+    const rawToken = req.cookies?.[REFRESH_COOKIE];
+    if (rawToken) {
+      try {
+        const bcrypt = await import("bcryptjs");
+        if (await bcrypt.compare(rawToken, session.tokenHash)) isCurrent = true;
+      } catch {}
+    }
+
+    await fastify.prisma.userSession.delete({ where: { id } });
+
+    if (isCurrent) {
+      reply.clearCookie(REFRESH_COOKIE, { path: "/" });
+      reply.clearCookie(ACCESS_COOKIE, { path: "/" });
+    }
+
+    return reply.send({ success: true });
+  });
+
+  fastify.delete("/sessions", { preHandler: [fastify.authenticate] }, async (req, reply) => {
+    await deleteAllSessionsForUser(fastify.prisma, req.user!.id);
+    // Clear cookies for current client
+    reply.clearCookie(REFRESH_COOKIE, { path: "/" });
+    reply.clearCookie(ACCESS_COOKIE, { path: "/" });
+    return reply.send({ success: true });
+  });
 };
 
 export default authRoutes;

@@ -380,6 +380,11 @@ export const api = {
 
     youtubeDisconnect: () =>
       v2<{ success: boolean }>("/auth/youtube/disconnect", { method: "POST" }),
+
+    // ── Session management
+    getSessions: () => v2<{ sessions: Array<{ id: string; ipAddress?: string | null; userAgent?: string | null; createdAt: string; expiresAt: string; lastUsedAt?: string | null }> }>("/auth/sessions"),
+    revokeSession: (id: string) => v2<{ success: boolean }>(`/auth/session/${id}`, { method: "DELETE" }),
+    revokeAllSessions: () => v2<{ success: boolean }>(`/auth/sessions`, { method: "DELETE" }),
   },
 
   // ── Enhanced search (/api/v2/search) ──────────────────────────────────────

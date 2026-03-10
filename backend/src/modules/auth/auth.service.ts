@@ -110,7 +110,7 @@ export async function issueRefreshToken(
   const expiresAt = new Date(Date.now() + parseRefreshMs());
 
   await prisma.userSession.create({
-    data: { userId, tokenHash, expiresAt, ...meta },
+    data: { userId, tokenHash, expiresAt, lastUsedAt: new Date(), ...meta },
   });
 
   return raw;
@@ -156,6 +156,27 @@ export async function refreshAccessToken(
     accessToken: issueAccessToken(fastify, user),
     refreshToken: newRaw,
   };
+}
+
+// ─── Session management helpers ─────────────────────────────────────────────
+export async function getUserSessions(prisma: PrismaClient, userId: string) {
+  return prisma.userSession.findMany({
+    where: { userId },
+    select: { id: true, ipAddress: true, userAgent: true, createdAt: true, expiresAt: true, lastUsedAt: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function deleteSessionById(prisma: PrismaClient, userId: string, sessionId: string) {
+  // Ensure session belongs to user
+  const s = await prisma.userSession.findUnique({ where: { id: sessionId }, select: { userId: true } });
+  if (!s || s.userId !== userId) return false;
+  await prisma.userSession.delete({ where: { id: sessionId } });
+  return true;
+}
+
+export async function deleteAllSessionsForUser(prisma: PrismaClient, userId: string) {
+  await prisma.userSession.deleteMany({ where: { userId } });
 }
 
 // ─── Logout ───────────────────────────────────────────────────────────────────

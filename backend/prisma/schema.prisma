@@ -54,6 +54,7 @@ model UserSession {
   tokenHash   String   @unique  // bcrypt hash of the refresh token
   expiresAt   DateTime
   createdAt   DateTime @default(now())
+  lastUsedAt  DateTime?            // last time the refresh token was used
   ipAddress   String?
   userAgent   String?
 
