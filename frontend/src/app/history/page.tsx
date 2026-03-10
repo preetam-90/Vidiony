@@ -22,19 +22,45 @@ export default function HistoryPage() {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     setLoading(true);
-    Promise.all([
-      fetch(`${BACKEND_ROOT}/history/continue`, { credentials: "include" }).then((r) => r.ok ? r.json() : null).catch(() => null),
-      fetch(`${BACKEND_ROOT}/history`, { credentials: "include" }).then((r) => r.ok ? r.json() : null).catch(() => null),
-    ]).then(([cont, hist]) => {
-      if (cont && cont.items) {
-        // filter where progress < 90% of duration
-        const filtered = (cont.items as HistoryItem[]).filter((it) => (it.duration ?? 0) > 0 ? it.progress < Math.floor((it.duration ?? 0) * 0.9) : true);
-        setContinueItems(filtered);
+    setError(null);
+
+    (async () => {
+      try {
+        const contRes = await fetch(`${BACKEND_ROOT}/history/continue`, { credentials: "include" });
+        if (!contRes.ok) {
+          if (contRes.status === 401) throw new Error("unauthorized");
+          throw new Error(`continue fetch failed: ${contRes.status}`);
+        }
+        const cont = await contRes.json();
+
+        const histRes = await fetch(`${BACKEND_ROOT}/history`, { credentials: "include" });
+        if (!histRes.ok) {
+          if (histRes.status === 401) throw new Error("unauthorized");
+          throw new Error(`history fetch failed: ${histRes.status}`);
+        }
+        const hist = await histRes.json();
+
+        if (cont && cont.items) {
+          const filtered = (cont.items as HistoryItem[]).filter((it) => (it.duration ?? 0) > 0 ? it.progress < Math.floor((it.duration ?? 0) * 0.9) : true);
+          setContinueItems(filtered);
+        }
+
+        if (hist && hist.items) setHistoryItems(hist.items as HistoryItem[]);
+      } catch (err: any) {
+        if (err?.message === "unauthorized") {
+          setError("unauthorized");
+        } else {
+          console.error("History fetch error", err);
+          setError(err?.message ?? "Failed to load history");
+        }
+      } finally {
+        setLoading(false);
       }
-      if (hist && hist.items) setHistoryItems(hist.items as HistoryItem[]);
-    }).finally(() => setLoading(false));
+    })();
   }, []);
 
   async function removeOne(videoId: string) {
@@ -50,6 +76,24 @@ export default function HistoryPage() {
   }
 
   if (loading) return <div className="p-6">Loading history...</div>;
+
+  if (error === "unauthorized") {
+    return (
+      <div className="p-6">
+        <h2 className="text-2xl font-semibold mb-4">Watch History</h2>
+        <div className="text-muted-foreground">Please sign in to view your watch history.</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <h2 className="text-2xl font-semibold mb-4">Watch History</h2>
+        <div className="text-red-500">Error loading history: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
