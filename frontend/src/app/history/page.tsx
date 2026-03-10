@@ -159,7 +159,7 @@ export default function HistoryPage() {
   const hasNoHistory = historyItems.length === 0;
 
   return (
-    <div className="max-w-[1600px] mx-auto px-4 py-8 md:px-8 space-y-12">
+    <div className="max-w-5xl mx-auto px-4 py-8 md:px-8 space-y-12">
       
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/40 pb-6">
@@ -198,8 +198,8 @@ export default function HistoryPage() {
           {/* CONTINUE WATCHING SECTION */}
           {continueItems.length > 0 && (
             <section className="space-y-6">
-              <h2 className="text-2xl font-semibold tracking-tight">Continue Watching</h2>
-              <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <h2 className="text-2xl font-semibold tracking-tight border-b border-border/40 pb-2">Continue Watching</h2>
+              <div className="flex flex-col gap-3">
                 {continueItems.map((it) => (
                   <HistoryCard key={it.videoId} item={it} onRemove={() => removeOne(it.videoId)} isContinue />
                 ))}
@@ -209,8 +209,8 @@ export default function HistoryPage() {
 
           {/* FULL HISTORY SECTION */}
           <section className="space-y-6">
-            <h2 className="text-2xl font-semibold tracking-tight">All History</h2>
-            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <h2 className="text-2xl font-semibold tracking-tight border-b border-border/40 pb-2">All History</h2>
+            <div className="flex flex-col gap-3">
               {historyItems.map((it) => (
                 <HistoryCard key={it.videoId} item={it} onRemove={() => removeOne(it.videoId)} />
               ))}
@@ -227,19 +227,19 @@ function HistoryCard({ item, onRemove, isContinue = false }: { item: HistoryItem
   const percent = Math.min(100, Math.max(0, Math.round(((item.progress ?? 0) / Math.max(1, (item.duration ?? 1))) * 100)));
 
   return (
-    <div className="group relative flex flex-col bg-card/40 hover:bg-card/80 border border-border/50 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+    <div className="group relative flex flex-col sm:flex-row gap-4 p-3 pr-4 rounded-2xl hover:bg-card/60 transition-colors duration-300 border border-transparent hover:border-border/50">
       
       {/* THUMBNAIL AREA */}
-      <Link href={`/watch/${item.videoId}`} className="block relative w-full aspect-video overflow-hidden bg-muted">
+      <Link href={`/watch/${item.videoId}`} className="block relative w-full sm:w-64 md:w-72 shrink-0 aspect-video rounded-xl overflow-hidden bg-muted">
         {item.thumbnail ? (
           // Using unoptimized to prevent Next.js domain whitelist errors for random YouTube image hosts
           <Image src={item.thumbnail} alt={item.title || "Video"} fill unoptimized className="object-cover transition-transform duration-500 group-hover:scale-105" />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30"><Play className="w-12 h-12" /></div>
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30"><Play className="w-10 h-10" /></div>
         )}
 
         {/* TIME OVERLAY */}
-        <div className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-sm text-white text-xs font-medium px-2 py-1 rounded-md tracking-wide">
+        <div className="absolute bottom-1.5 right-1.5 bg-black/80 backdrop-blur-sm text-white text-[11px] font-medium px-1.5 py-0.5 rounded tracking-wide">
           {formatTime(item.progress)} {item.duration ? ` / ${formatTime(item.duration)}` : ''}
         </div>
 
@@ -257,24 +257,36 @@ function HistoryCard({ item, onRemove, isContinue = false }: { item: HistoryItem
       </Link>
 
       {/* METADATA AREA */}
-      <div className="p-4 flex flex-col flex-1">
-        <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col flex-1 min-w-0 py-1 sm:py-2">
+        <div className="flex items-start justify-between gap-4">
           <Link href={`/watch/${item.videoId}`} className="flex-1 min-w-0 group-hover:text-primary transition-colors">
-            <h3 className="font-semibold text-base leading-tight line-clamp-2" title={item.title}>{item.title}</h3>
-            <p className="text-sm text-muted-foreground mt-1.5 truncate">{item.channelName}</p>
+            <h3 className="font-semibold text-lg leading-tight line-clamp-2 mb-1.5" title={item.title}>{item.title}</h3>
+            
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm text-muted-foreground">
+              <span className="truncate text-foreground/80 font-medium">{item.channelName}</span>
+              <span className="hidden sm:inline">•</span>
+              <span className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <Clock className="w-3.5 h-3.5" />
+                {getRelativeTime(item.watchedAt)}
+              </span>
+            </div>
+            
+            {/* Short description/extra info placeholder - typical in list layouts */}
+            {isContinue && (
+              <p className="mt-3 text-xs font-medium text-primary bg-primary/10 inline-block px-2 py-1 rounded-md">
+                Resume playing
+              </p>
+            )}
           </Link>
+          
+          {/* REMOVE BUTTON */}
           <button 
             onClick={(e) => { e.preventDefault(); onRemove(); }}
-            className="shrink-0 p-2 -mr-2 -mt-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+            className="shrink-0 p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 absolute top-4 right-4 sm:static sm:opacity-100 bg-background/80 sm:bg-transparent backdrop-blur-sm sm:backdrop-blur-none"
             title="Remove from history"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-5 h-5" />
           </button>
-        </div>
-        
-        <div className="mt-auto pt-3 flex items-center gap-1.5 text-xs text-muted-foreground/80 font-medium">
-          <Clock className="w-3.5 h-3.5" />
-          {getRelativeTime(item.watchedAt)}
         </div>
       </div>
     </div>
