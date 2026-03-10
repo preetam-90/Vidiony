@@ -77,26 +77,22 @@ const historyRoutes: FastifyPluginAsync = async (fastify) => {
         where: {
           userId: req.user!.id,
           progress: { gt: 0 },
-          AND: [
-            { duration: { not: null } },
-            { progress: { lt: Math.floor((await getDurationThreshold()) ) } },
-          ],
+          duration: { not: null },
         },
         orderBy: { watchedAt: "desc" },
-        take: 50,
+        take: 100,
       });
 
-      return reply.send({ success: true, items: rows });
+      // filter out items where user has watched >= 90%
+      const filtered = rows.filter((r: any) => {
+        if (!r.duration || r.duration <= 0) return false;
+        return r.progress < Math.floor(r.duration * 0.9);
+      });
+
+      return reply.send({ success: true, items: filtered });
     } catch (err) {
       fastify.log.error(err, "continue fetch error");
       return reply.status(500).send({ success: false, error: { code: "DB_ERROR", message: "Failed to fetch continue watching" } });
-    }
-
-    async function getDurationThreshold() {
-      // We can't compute duration threshold in query easily for each row here,
-      // so return a placeholder -- we'll filter client-side as a fallback.
-      // However Prisma supports arithmetic in filters only via raw SQL; keep it simple:
-      return 0; // not used
     }
   });
 
