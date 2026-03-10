@@ -184,6 +184,8 @@ export function VideoPlayer({
     providedStreamUrl ? normalizePlayableUrl(videoId, providedStreamUrl) : null
   );
   const [isFetchingUrl, setIsFetchingUrl] = useState(!providedStreamUrl);
+  const HISTORY_POLL_MS = 10_000; // 10 seconds
+
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [centerFeedback, setCenterFeedback] = useState<"play" | "pause" | null>(null);
@@ -224,10 +226,24 @@ export function VideoPlayer({
         if (!cancelled) setIsFetchingUrl(false);
       });
 
+    // Fetch last watched position to resume
+    let cancelledHistory = false;
+    import("./history").then((m) => m.fetchHistoryEntry(videoId)).then((entry) => {
+      if (cancelledHistory || !entry) return;
+      if (entry.progress && typeof entry.progress === "number") {
+        // resume if position > 1s
+        if (entry.progress > 1) {
+          pendingSeekRef.current = entry.progress;
+        }
+      }
+    }).catch(() => {});
+
     return () => {
       cancelled = true;
+      cancelledHistory = true;
     };
   }, [patch, providedStreamUrl, videoId]);
+
 
   useEffect(() => {
     const video = videoRef.current;
@@ -340,19 +356,33 @@ export function VideoPlayer({
     const video = videoRef.current;
     if (!video) return;
 
+    let interval: ReturnType<typeof setInterval> | null = null;
+
     const onPlay = () => {
       patch({ isPlaying: true, isEnded: false });
       showControlsTemporarily();
+      // start periodic history updates
+      if (!interval) {
+        interval = setInterval(() => {
+          import("./history").then((m) => m.postHistoryUpdate(videoId, video.currentTime || 0, Math.floor(video.duration || 0))).catch(() => {});
+        }, HISTORY_POLL_MS);
+      }
     };
     const onPause = () => {
       patch({ isPlaying: false });
       clearControlsTimer();
       setControlsVisible(true);
+      // send one final update
+      import("./history").then((m) => m.postHistoryUpdate(videoId, video.currentTime || 0, Math.floor(video.duration || 0))).catch(() => {});
+      if (interval) { clearInterval(interval); interval = null; }
     };
     const onEnded = () => {
       patch({ isPlaying: false, isEnded: true });
       clearControlsTimer();
       setControlsVisible(true);
+      // mark as finished (set progress = duration)
+      import("./history").then((m) => m.postHistoryUpdate(videoId, Math.floor(video.duration || 0), Math.floor(video.duration || 0))).catch(() => {});
+      if (interval) { clearInterval(interval); interval = null; }
     };
     const onWaiting = () => patch({ isWaiting: true });
     const onCanPlay = () => patch({ isWaiting: false, isLoading: false });
@@ -389,6 +419,7 @@ export function VideoPlayer({
       video.removeEventListener("volumechange", onVolumeChange);
       video.removeEventListener("ratechange", onRateChange);
       video.removeEventListener("error", onError);
+      if (interval) clearInterval(interval);
     };
   }, [clearControlsTimer, patch, showControlsTemporarily]);
 

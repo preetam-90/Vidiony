@@ -268,6 +268,9 @@ export async function buildApp() {
   app.register(liveRoutes,         { prefix: "/live" });
   app.register(userRoutes,         { prefix: "/user" });
   app.register(proxyRoutes,        { prefix: "/proxy" });
+  // Watch history endpoints (player updates + history UI)
+  const historyRoutes = await import("./routes/history.js").then(m => m.default);
+  app.register(historyRoutes, { prefix: "/history" });
 
   return app;
 }
