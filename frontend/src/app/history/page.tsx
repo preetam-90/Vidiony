@@ -103,21 +103,30 @@ export default function HistoryPage() {
       ) : (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {continueItems.map((it) => (
-            <Link key={it.videoId} href={`/watch/${it.videoId}`} className="flex gap-3 items-center bg-card p-3 rounded-lg">
-              <div className="relative w-40 h-24 rounded overflow-hidden">
-                {it.thumbnail ? (
-                  <Image src={it.thumbnail} alt={it.title || ""} fill className="object-cover" />
-                ) : (
-                  <div className="bg-muted w-full h-full" />
-                )}
-                <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-2 py-0.5 rounded">{formatTime(it.progress)} / {formatTime(it.duration ?? 0)}</div>
+            <div key={it.videoId} className="bg-card rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+              <div className="relative group">
+                <Link href={`/watch/${it.videoId}`} className="block w-full h-0 pb-[56.25%] relative">
+                  {it.thumbnail ? (
+                    <Image src={it.thumbnail} alt={it.title || ""} fill className="object-cover" />
+                  ) : (
+                    <div className="bg-muted w-full h-full absolute inset-0" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                </Link>
+
+                <div className="absolute left-3 bottom-3 bg-black/70 text-white text-xs px-2 py-0.5 rounded">{formatTime(it.progress)} / {formatTime(it.duration ?? 0)}</div>
+                <div className="absolute right-3 top-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Link href={`/watch/${it.videoId}`} className="bg-white/90 text-black px-2 py-1 rounded text-sm">Resume</Link>
+                  <button onClick={() => removeOne(it.videoId)} className="bg-black/60 text-white px-2 py-1 rounded text-sm">Remove</button>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
+
+              <div className="p-3">
                 <div className="font-semibold line-clamp-2">{it.title}</div>
-                <div className="text-sm text-muted-foreground">{it.channelName}</div>
-                <div className="mt-2 h-2 w-full bg-muted rounded overflow-hidden"><div style={{ width: `${Math.round(((it.progress ?? 0) / Math.max(1, (it.duration ?? 1))) * 100)}%`}} className="h-full bg-primary" /></div>
+                <div className="text-sm text-muted-foreground mt-1">{it.channelName}</div>
+                <div className="mt-3 h-2 w-full bg-muted rounded overflow-hidden"><div style={{ width: `${Math.round(((it.progress ?? 0) / Math.max(1, (it.duration ?? 1))) * 100)}%`}} className="h-full bg-gradient-to-r from-primary to-emerald-500" /></div>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}
@@ -134,26 +143,34 @@ export default function HistoryPage() {
       ) : (
         <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {historyItems.map((it) => (
-            <div key={it.videoId} className="bg-card rounded-lg overflow-hidden">
-              <Link href={`/watch/${it.videoId}`} className="flex gap-3 p-3 items-center">
-                <div className="relative w-40 h-24 rounded overflow-hidden">
+            <div key={it.videoId} className="bg-card rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+              <Link href={`/watch/${it.videoId}`} className="block">
+                <div className="relative w-full h-0 pb-[56.25%]">
                   {it.thumbnail ? (
                     <Image src={it.thumbnail} alt={it.title || ""} fill className="object-cover" />
                   ) : (
-                    <div className="bg-muted w-full h-full" />
+                    <div className="bg-muted w-full h-full absolute inset-0" />
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold line-clamp-2">{it.title}</div>
-                  <div className="text-sm text-muted-foreground">{it.channelName}</div>
-                  <div className="mt-2 h-2 w-full bg-muted rounded overflow-hidden"><div style={{ width: `${Math.round(((it.progress ?? 0) / Math.max(1, (it.duration ?? 1))) * 100)}%`}} className="h-full bg-primary" /></div>
-                  <div className="mt-1 text-xs text-muted-foreground">Last watched: {new Date(it.watchedAt).toLocaleString()}</div>
-                </div>
               </Link>
-              <div className="p-3 border-t border-border flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">{formatTime(it.progress)} / {formatTime(it.duration ?? 0)}</div>
-                <div>
-                  <button onClick={() => removeOne(it.videoId)} className="btn btn-ghost">Remove</button>
+
+              <div className="p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold line-clamp-2">{it.title}</div>
+                    <div className="text-sm text-muted-foreground mt-1">{it.channelName}</div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">{new Date(it.watchedAt).toLocaleDateString()}</div>
+                </div>
+
+                <div className="mt-3 h-2 w-full bg-muted rounded overflow-hidden"><div style={{ width: `${Math.round(((it.progress ?? 0) / Math.max(1, (it.duration ?? 1))) * 100)}%`}} className="h-full bg-gradient-to-r from-primary to-emerald-500" /></div>
+
+                <div className="mt-3 flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">{formatTime(it.progress)} / {formatTime(it.duration ?? 0)}</div>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/watch/${it.videoId}`} className="text-sm px-3 py-1 rounded bg-white/90 text-black">Watch</Link>
+                    <button onClick={() => removeOne(it.videoId)} className="text-sm px-3 py-1 rounded bg-transparent border border-gray-200">Remove</button>
+                  </div>
                 </div>
               </div>
             </div>

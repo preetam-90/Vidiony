@@ -5,12 +5,16 @@ const historyRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /history/update
   fastify.post("/update", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const schema = z.object({
-      videoId: z.string().min(1),
-      position: z.number().int().min(0),
-      duration: z.number().int().min(0),
-      title: z.string().optional(),
-      thumbnail: z.string().optional(),
+      videoId:     z.string().min(1),
+      position:    z.number().int().min(0),
+      duration:    z.number().int().min(0),
+      title:       z.string().optional(),
+      thumbnail:   z.string().optional(),
       channelName: z.string().optional(),
+      // Recommendation enrichment fields
+      channelId:   z.string().optional(),
+      category:    z.string().optional(),
+      tags:        z.array(z.string()).optional(),
     });
 
     const parsed = schema.safeParse(req.body);
@@ -18,10 +22,26 @@ const historyRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ success: false, error: { code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() } });
     }
 
-    const { videoId, position, duration, title, thumbnail, channelName } = parsed.data;
+    let { videoId, position, duration, title, thumbnail, channelName, channelId, category, tags } = parsed.data;
+
+    // Enrich metadata if missing (best-effort). This helps ensure thumbnails/titles appear in the UI.
+    if ((!title || !thumbnail || !channelName) && fastify) {
+      try {
+        const ytService = await import("../services/youtube.service.js");
+        const details = await ytService.getVideoDetails(videoId).catch(() => null);
+        if (details) {
+          title = title || details.title || title;
+          thumbnail = thumbnail || (details.thumbnails?.[0]?.url ?? thumbnail);
+          channelName = channelName || details.channelName || channelName;
+          duration = duration || details.duration || duration;
+        }
+      } catch (err) {
+        fastify.log.debug({ err }, "history: metadata enrichment failed");
+      }
+    }
 
     try {
-      const entry = await fastify.prisma.watchHistory.upsert({
+      await fastify.prisma.watchHistory.upsert({
         where: { userId_videoId: { userId: req.user!.id, videoId } },
         create: {
           userId: req.user!.id,
@@ -31,18 +51,30 @@ const historyRoutes: FastifyPluginAsync = async (fastify) => {
           title,
           thumbnail,
           channelName,
+          channelId,
+          category,
+          tags: tags ?? [],
         },
         update: {
-          progress: position,
           duration,
-          title,
-          thumbnail,
-          channelName,
+          ...(title       ? { title }       : {}),
+          ...(thumbnail   ? { thumbnail }   : {}),
+          ...(channelName ? { channelName } : {}),
+          ...(channelId   ? { channelId }   : {}),
+          ...(category    ? { category }    : {}),
+          ...(tags?.length ? { tags }       : {}),
           watchedAt: new Date(),
         },
       });
 
-      return reply.send({ success: true, entry });
+      // Move progress forward only (never backward)
+      await fastify.prisma.$executeRaw`
+        UPDATE watch_history
+        SET progress = GREATEST(progress, ${position})
+        WHERE user_id = ${req.user!.id} AND video_id = ${videoId}
+      `;
+
+      return reply.send({ success: true });
     } catch (err) {
       fastify.log.error(err, "history update error");
       return reply.status(500).send({ success: false, error: { code: "DB_ERROR", message: "Failed to update history" } });
