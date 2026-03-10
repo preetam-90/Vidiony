@@ -6,6 +6,7 @@ export async function fetchHistoryEntry(videoId: string) {
     const res = await fetch(`${BACKEND_ROOT}/history/video/${encodeURIComponent(videoId)}`, {
       method: "GET",
       credentials: "include",
+      cache: "no-store", // Ensure we always get the fresh resume position
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -16,12 +17,16 @@ export async function fetchHistoryEntry(videoId: string) {
 }
 
 export async function postHistoryUpdate(videoId: string, position: number, duration: number, meta?: { title?: string; thumbnail?: string; channelName?: string }) {
+  // Prevent NaN or Infinity which crashes backend Zod validation
+  const safePosition = Number.isFinite(position) ? Math.max(0, Math.floor(position)) : 0;
+  const safeDuration = Number.isFinite(duration) ? Math.max(0, Math.floor(duration)) : 0;
+
   try {
     await fetch(`${BACKEND_ROOT}/history/update`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ videoId, position: Math.max(0, Math.floor(position)), duration: Math.max(0, Math.floor(duration)), ...meta }),
+      body: JSON.stringify({ videoId, position: safePosition, duration: safeDuration, ...meta }),
     });
   } catch {
     // ignore network errors

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { History, Play, Trash2, Clock, AlertCircle } from "lucide-react";
 
 const BACKEND_ROOT = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "") : "";
 
@@ -17,11 +18,39 @@ type HistoryItem = {
   watchedAt: string;
 };
 
+// Beautiful relative time formatter
+function getRelativeTime(dateString: string) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffInSeconds < 60) return "Just now";
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `${diffInHours}h ago`;
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays === 1) return "Yesterday";
+  if (diffInDays < 7) return `${diffInDays} days ago`;
+  const diffInWeeks = Math.floor(diffInDays / 7);
+  if (diffInWeeks < 4) return `${diffInWeeks} weeks ago`;
+  const diffInMonths = Math.floor(diffInDays / 30);
+  if (diffInMonths < 12) return `${diffInMonths} months ago`;
+  return `${Math.floor(diffInDays / 365)} years ago`;
+}
+
+function formatTime(s?: number) {
+  if (!s || isNaN(s)) return "0:00";
+  const sec = Math.floor(s);
+  const m = Math.floor(sec / 60);
+  const r = sec % 60;
+  return `${m}:${r.toString().padStart(2, "0")}`;
+}
+
 export default function HistoryPage() {
   const [continueItems, setContinueItems] = useState<HistoryItem[]>([]);
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,33 +59,33 @@ export default function HistoryPage() {
 
     (async () => {
       try {
-        const contRes = await fetch(`${BACKEND_ROOT}/history/continue`, { credentials: "include" });
+        const fetchOpts = { credentials: "include" as RequestCredentials, cache: "no-store" as RequestCache };
+        
+        const contRes = await fetch(`${BACKEND_ROOT}/history/continue`, fetchOpts);
         if (!contRes.ok) {
           if (contRes.status === 401) throw new Error("unauthorized");
-          throw new Error(`continue fetch failed: ${contRes.status}`);
+          throw new Error(`Failed to load continue watching: ${contRes.status}`);
         }
         const cont = await contRes.json();
 
-        const histRes = await fetch(`${BACKEND_ROOT}/history`, { credentials: "include" });
+        const histRes = await fetch(`${BACKEND_ROOT}/history`, fetchOpts);
         if (!histRes.ok) {
           if (histRes.status === 401) throw new Error("unauthorized");
-          throw new Error(`history fetch failed: ${histRes.status}`);
+          throw new Error(`Failed to load watch history: ${histRes.status}`);
         }
         const hist = await histRes.json();
 
-        if (cont && cont.items) {
-          const filtered = (cont.items as HistoryItem[]).filter((it) => (it.duration ?? 0) > 0 ? it.progress < Math.floor((it.duration ?? 0) * 0.9) : true);
+        if (cont?.items) {
+          const filtered = (cont.items as HistoryItem[]).filter((it) => 
+            (it.duration ?? 0) > 0 ? it.progress < Math.floor((it.duration ?? 0) * 0.9) : true
+          );
           setContinueItems(filtered);
         }
 
-        if (hist && hist.items) setHistoryItems(hist.items as HistoryItem[]);
+        if (hist?.items) setHistoryItems(hist.items as HistoryItem[]);
       } catch (err: any) {
-        if (err?.message === "unauthorized") {
-          setError("unauthorized");
-        } else {
-          console.error("History fetch error", err);
-          setError(err?.message ?? "Failed to load history");
-        }
+        if (err?.message === "unauthorized") setError("unauthorized");
+        else setError(err?.message ?? "An error occurred while loading history.");
       } finally {
         setLoading(false);
       }
@@ -64,127 +93,190 @@ export default function HistoryPage() {
   }, []);
 
   async function removeOne(videoId: string) {
-    await fetch(`${BACKEND_ROOT}/history/${encodeURIComponent(videoId)}`, { method: "DELETE", credentials: "include" });
-    setHistoryItems((s) => s.filter((i) => i.videoId !== videoId));
-    setContinueItems((s) => s.filter((i) => i.videoId !== videoId));
+    try {
+      await fetch(`${BACKEND_ROOT}/history/${encodeURIComponent(videoId)}`, { method: "DELETE", credentials: "include" });
+      setHistoryItems((s) => s.filter((i) => i.videoId !== videoId));
+      setContinueItems((s) => s.filter((i) => i.videoId !== videoId));
+    } catch {
+      alert("Failed to remove item.");
+    }
   }
 
   async function clearAll() {
-    await fetch(`${BACKEND_ROOT}/history`, { method: "DELETE", credentials: "include" });
-    setHistoryItems([]);
-    setContinueItems([]);
+    if (!confirm("Are you sure you want to clear your entire watch history? This cannot be undone.")) return;
+    try {
+      await fetch(`${BACKEND_ROOT}/history`, { method: "DELETE", credentials: "include" });
+      setHistoryItems([]);
+      setContinueItems([]);
+    } catch {
+      alert("Failed to clear history.");
+    }
   }
 
-  if (loading) return <div className="p-6">Loading history...</div>;
+  // --- RENDERING STATES ---
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-8 md:py-12 flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin opacity-80" />
+        <p className="text-muted-foreground animate-pulse font-medium">Loading your history...</p>
+      </div>
+    );
+  }
 
   if (error === "unauthorized") {
     return (
-      <div className="p-6">
-        <h2 className="text-2xl font-semibold mb-4">Watch History</h2>
-        <div className="text-muted-foreground">Please sign in to view your watch history.</div>
+      <div className="max-w-7xl mx-auto px-4 py-16 flex flex-col items-center justify-center text-center">
+        <div className="bg-muted/50 p-6 rounded-full mb-6">
+          <History className="h-16 w-16 text-muted-foreground/60" />
+        </div>
+        <h2 className="text-3xl font-bold tracking-tight mb-3">Keep track of what you watch</h2>
+        <p className="text-lg text-muted-foreground mb-8 max-w-[400px]">
+          Watch history isn't viewable when you're signed out. Sign in to see your recently watched videos.
+        </p>
+        <Link 
+          href="/auth/login" 
+          className="inline-flex h-11 items-center justify-center rounded-full bg-primary px-8 text-sm font-semibold text-primary-foreground shadow transition-colors hover:bg-primary/90"
+        >
+          Sign In
+        </Link>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6">
-        <h2 className="text-2xl font-semibold mb-4">Watch History</h2>
-        <div className="text-red-500">Error loading history: {error}</div>
+      <div className="max-w-7xl mx-auto px-4 py-12">
+        <div className="flex flex-col items-center justify-center p-12 rounded-2xl border border-destructive/20 bg-destructive/5 text-center">
+          <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Oops! Something went wrong</h2>
+          <p className="text-muted-foreground">{error}</p>
+        </div>
       </div>
     );
   }
 
+  const hasNoHistory = historyItems.length === 0;
+
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-semibold mb-4">Continue Watching</h2>
-      {continueItems.length === 0 ? (
-        <div className="text-muted-foreground">No continue watching items</div>
-      ) : (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {continueItems.map((it) => (
-            <div key={it.videoId} className="bg-card rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-              <div className="relative group">
-                <Link href={`/watch/${it.videoId}`} className="block w-full h-0 pb-[56.25%] relative">
-                  {it.thumbnail ? (
-                    <Image src={it.thumbnail} alt={it.title || ""} fill className="object-cover" />
-                  ) : (
-                    <div className="bg-muted w-full h-full absolute inset-0" />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                </Link>
-
-                <div className="absolute left-3 bottom-3 bg-black/70 text-white text-xs px-2 py-0.5 rounded">{formatTime(it.progress)} / {formatTime(it.duration ?? 0)}</div>
-                <div className="absolute right-3 top-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Link href={`/watch/${it.videoId}`} className="bg-white/90 text-black px-2 py-1 rounded text-sm">Resume</Link>
-                  <button onClick={() => removeOne(it.videoId)} className="bg-black/60 text-white px-2 py-1 rounded text-sm">Remove</button>
-                </div>
-              </div>
-
-              <div className="p-3">
-                <div className="font-semibold line-clamp-2">{it.title}</div>
-                <div className="text-sm text-muted-foreground mt-1">{it.channelName}</div>
-                <div className="mt-3 h-2 w-full bg-muted rounded overflow-hidden"><div style={{ width: `${Math.round(((it.progress ?? 0) / Math.max(1, (it.duration ?? 1))) * 100)}%`}} className="h-full bg-gradient-to-r from-primary to-emerald-500" /></div>
-              </div>
-            </div>
-          ))}
+    <div className="max-w-[1600px] mx-auto px-4 py-8 md:px-8 space-y-12">
+      
+      {/* HEADER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/40 pb-6">
+        <div className="space-y-1">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight flex items-center gap-3">
+            <History className="h-8 w-8 text-primary" />
+            Watch History
+          </h1>
+          <p className="text-muted-foreground text-sm md:text-base">
+            Pick up right where you left off.
+          </p>
         </div>
-      )}
-
-      <div className="mt-8 flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Watch History</h2>
-        <div>
-          <button onClick={clearAll} className="btn btn-danger">Clear all</button>
-        </div>
+        {!hasNoHistory && (
+          <button 
+            onClick={clearAll} 
+            className="group flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-secondary/50 text-secondary-foreground hover:bg-destructive/10 hover:text-destructive transition-colors border border-transparent hover:border-destructive/20"
+          >
+            <Trash2 className="h-4 w-4" />
+            Clear all history
+          </button>
+        )}
       </div>
 
-      {historyItems.length === 0 ? (
-        <div className="mt-4 text-muted-foreground">No history yet</div>
-      ) : (
-        <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {historyItems.map((it) => (
-            <div key={it.videoId} className="bg-card rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-              <Link href={`/watch/${it.videoId}`} className="block">
-                <div className="relative w-full h-0 pb-[56.25%]">
-                  {it.thumbnail ? (
-                    <Image src={it.thumbnail} alt={it.title || ""} fill className="object-cover" />
-                  ) : (
-                    <div className="bg-muted w-full h-full absolute inset-0" />
-                  )}
-                </div>
-              </Link>
-
-              <div className="p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold line-clamp-2">{it.title}</div>
-                    <div className="text-sm text-muted-foreground mt-1">{it.channelName}</div>
-                  </div>
-                  <div className="text-xs text-muted-foreground">{new Date(it.watchedAt).toLocaleDateString()}</div>
-                </div>
-
-                <div className="mt-3 h-2 w-full bg-muted rounded overflow-hidden"><div style={{ width: `${Math.round(((it.progress ?? 0) / Math.max(1, (it.duration ?? 1))) * 100)}%`}} className="h-full bg-gradient-to-r from-primary to-emerald-500" /></div>
-
-                <div className="mt-3 flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">{formatTime(it.progress)} / {formatTime(it.duration ?? 0)}</div>
-                  <div className="flex items-center gap-2">
-                    <Link href={`/watch/${it.videoId}`} className="text-sm px-3 py-1 rounded bg-white/90 text-black">Watch</Link>
-                    <button onClick={() => removeOne(it.videoId)} className="text-sm px-3 py-1 rounded bg-transparent border border-gray-200">Remove</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+      {hasNoHistory ? (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="bg-muted/30 p-8 rounded-full mb-6">
+            <History className="h-16 w-16 text-muted-foreground/40" />
+          </div>
+          <h2 className="text-2xl font-semibold mb-2">No videos here</h2>
+          <p className="text-muted-foreground max-w-sm">
+            Videos you watch will appear here so you can easily find them later.
+          </p>
         </div>
+      ) : (
+        <>
+          {/* CONTINUE WATCHING SECTION */}
+          {continueItems.length > 0 && (
+            <section className="space-y-6">
+              <h2 className="text-2xl font-semibold tracking-tight">Continue Watching</h2>
+              <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {continueItems.map((it) => (
+                  <HistoryCard key={it.videoId} item={it} onRemove={() => removeOne(it.videoId)} isContinue />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* FULL HISTORY SECTION */}
+          <section className="space-y-6">
+            <h2 className="text-2xl font-semibold tracking-tight">All History</h2>
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {historyItems.map((it) => (
+                <HistoryCard key={it.videoId} item={it} onRemove={() => removeOne(it.videoId)} />
+              ))}
+            </div>
+          </section>
+        </>
       )}
     </div>
   );
 }
 
-function formatTime(s?: number) {
-  if (!s) return "0:00";
-  const sec = Math.floor(s);
-  const m = Math.floor(sec / 60);
-  const r = sec % 60;
-  return `${m}:${r.toString().padStart(2, "0")}`;
+// Sub-component for rendering the beautiful history cards
+function HistoryCard({ item, onRemove, isContinue = false }: { item: HistoryItem, onRemove: () => void, isContinue?: boolean }) {
+  const percent = Math.min(100, Math.max(0, Math.round(((item.progress ?? 0) / Math.max(1, (item.duration ?? 1))) * 100)));
+
+  return (
+    <div className="group relative flex flex-col bg-card/40 hover:bg-card/80 border border-border/50 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+      
+      {/* THUMBNAIL AREA */}
+      <Link href={`/watch/${item.videoId}`} className="block relative w-full aspect-video overflow-hidden bg-muted">
+        {item.thumbnail ? (
+          // Using unoptimized to prevent Next.js domain whitelist errors for random YouTube image hosts
+          <Image src={item.thumbnail} alt={item.title || "Video"} fill unoptimized className="object-cover transition-transform duration-500 group-hover:scale-105" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30"><Play className="w-12 h-12" /></div>
+        )}
+
+        {/* TIME OVERLAY */}
+        <div className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-sm text-white text-xs font-medium px-2 py-1 rounded-md tracking-wide">
+          {formatTime(item.progress)} {item.duration ? ` / ${formatTime(item.duration)}` : ''}
+        </div>
+
+        {/* PROGRESS BAR */}
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40">
+          <div className="h-full bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.8)]" style={{ width: `${percent}%` }} />
+        </div>
+
+        {/* HOVER PLAY OVERLAY */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-white/90 shadow-lg scale-50 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center transform group-hover:-translate-y-1">
+            <Play className="w-5 h-5 text-black ml-1" fill="currentColor" />
+          </div>
+        </div>
+      </Link>
+
+      {/* METADATA AREA */}
+      <div className="p-4 flex flex-col flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <Link href={`/watch/${item.videoId}`} className="flex-1 min-w-0 group-hover:text-primary transition-colors">
+            <h3 className="font-semibold text-base leading-tight line-clamp-2" title={item.title}>{item.title}</h3>
+            <p className="text-sm text-muted-foreground mt-1.5 truncate">{item.channelName}</p>
+          </Link>
+          <button 
+            onClick={(e) => { e.preventDefault(); onRemove(); }}
+            className="shrink-0 p-2 -mr-2 -mt-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+            title="Remove from history"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+        
+        <div className="mt-auto pt-3 flex items-center gap-1.5 text-xs text-muted-foreground/80 font-medium">
+          <Clock className="w-3.5 h-3.5" />
+          {getRelativeTime(item.watchedAt)}
+        </div>
+      </div>
+    </div>
+  );
 }
