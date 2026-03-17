@@ -4,6 +4,8 @@
  * All data endpoints go through YouTubeService (which owns the Innertube
  * singleton).  Stream URLs are deciphered by the service and returned as
  * plain JSON; the browser sends them to /proxy/stream for actual playback.
+ *
+ * SECURITY: Stream URL endpoint is rate-limited and cached to prevent abuse.
  */
 
 import { FastifyPluginAsync } from "fastify";
@@ -17,6 +19,7 @@ import {
   FeedQuerySchema,
 } from "./youtube.schemas.js";
 import * as ytService from "../../services/youtube.service.js";
+import { getCachedData, setCachedData } from "../../services/cache.service.js";
 
 const youtubeModuleRoutes: FastifyPluginAsync = async (fastify) => {
   // ─── Health ──────────────────────────────────────────────────────────────
@@ -206,7 +209,7 @@ const youtubeModuleRoutes: FastifyPluginAsync = async (fastify) => {
       "pipe:1",
     ]);
 
-    req.raw.on("close", () => { try { ff.kill("SIGKILL"); } catch {} });
+    req.raw.on("close", () => { try { ff.kill("SIGKILL"); } catch { } });
     ff.stderr.on("data", (chunk: Buffer) => {
       req.log.debug({ ffmpeg: chunk.toString() }, "ffmpeg stderr");
     });
@@ -229,49 +232,84 @@ const youtubeModuleRoutes: FastifyPluginAsync = async (fastify) => {
   //
   //   Response: { url: string, proxyUrl: string, itag, mimeType, qualityLabel }
   //
-  // Use `proxyUrl` as the <video> src.
-  fastify.get("/stream/:videoId", streamHandler);
-  fastify.get("/stream/:videoId/:itag", streamHandler);
+  // Rate limit for stream URL requests (prevent abuse of the deciphering endpoint)
+  const streamUrlRateLimit = fastify.rateLimit({
+    max: 60, // 60 requests per minute per user/IP
+    timeWindow: 60 * 1000,
+    keyGenerator: (req: any) => {
+      const userId = (req as any).user?.id;
+      return userId ? `user:${userId}` : req.ip;
+    },
+    skipOnError: true,
+  });
+
+  // Stream URL handler with rate limiting and caching
+  const streamHandler = async (req: any, reply: any) => {
+    const parsed = StreamParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error.flatten() });
+    }
+
+    const parsedQuery = StreamQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      return reply.status(400).send({ error: parsedQuery.error.flatten() });
+    }
+
+    const { videoId } = parsed.data;
+    const { quality } = parsedQuery.data;
+
+    // Check cache first (cache key includes videoId and quality)
+    const cacheKey = `yt_stream:${videoId}:${quality ?? 'best'}`;
+    const cached = await getCachedData<{
+      videoId: string;
+      itag: number;
+      mimeType: string;
+      container: string;
+      qualityLabel: string;
+      contentLength: number;
+      url: string;
+      proxyUrl: string;
+    }>(cacheKey);
+
+    if (cached) {
+      req.log.debug({ videoId, quality }, "Stream URL cache hit");
+      return reply.send(cached);
+    }
+
+    try {
+      req.log.info({ videoId, quality }, "Stream URL request");
+
+      const fmt = await ytService.getStreamFormat(videoId, { quality, type: 'video+audio' });
+
+      const proxyUrl = `/proxy/stream?url=${encodeURIComponent(fmt.url)}`;
+
+      const responseData = {
+        videoId,
+        itag: fmt.itag,
+        mimeType: fmt.mimeType,
+        container: fmt.container,
+        qualityLabel: fmt.qualityLabel,
+        contentLength: fmt.contentLength,
+        url: fmt.url,
+        proxyUrl,
+      };
+
+      // Cache for 5 minutes (300 seconds)
+      await setCachedData(cacheKey, responseData, 300);
+
+      return reply.send(responseData);
+    } catch (err: any) {
+      req.log.error(err, "Stream URL error");
+      return reply.status(500).send({
+        error: err?.message ?? "Failed to get stream URL",
+        hint: "Set YT_COOKIE in .env for better stream URL deciphering.",
+      });
+    }
+  };
+
+  // Register routes with rate limit preHandler
+  fastify.get("/stream/:videoId", { preHandler: [streamUrlRateLimit] }, streamHandler);
+  fastify.get("/stream/:videoId/:itag", { preHandler: [streamUrlRateLimit] }, streamHandler);
 };
-
-async function streamHandler(req: any, reply: any) {
-  const parsed = StreamParamsSchema.safeParse(req.params);
-  if (!parsed.success) {
-    return reply.status(400).send({ error: parsed.error.flatten() });
-  }
-
-  const parsedQuery = StreamQuerySchema.safeParse(req.query);
-  if (!parsedQuery.success) {
-    return reply.status(400).send({ error: parsedQuery.error.flatten() });
-  }
-
-  const { videoId } = parsed.data;
-  const { quality } = parsedQuery.data;
-
-  try {
-    req.log.info({ videoId, quality }, "Stream URL request");
-
-    const fmt = await ytService.getStreamFormat(videoId, { quality, type: 'video+audio' });
-
-    const proxyUrl = `/proxy/stream?url=${encodeURIComponent(fmt.url)}`;
-
-    return reply.send({
-      videoId,
-      itag: fmt.itag,
-      mimeType: fmt.mimeType,
-      container: fmt.container,
-      qualityLabel: fmt.qualityLabel,
-      contentLength: fmt.contentLength,
-      url: fmt.url,
-      proxyUrl,
-    });
-  } catch (err: any) {
-    req.log.error(err, "Stream URL error");
-    return reply.status(500).send({
-      error: err?.message ?? "Failed to get stream URL",
-      hint: "Set YT_COOKIE in .env for better stream URL deciphering.",
-    });
-  }
-}
 
 export default youtubeModuleRoutes;

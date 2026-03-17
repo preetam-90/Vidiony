@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/auth-context";
+import { useSidebar } from "@/contexts/sidebar-context";
+import { SidebarContent } from "./layout/sidebar";
 
 // ── Recent searches (persisted in localStorage) ─────────────────────────
 function getRecentSearches(): string[] {
@@ -66,6 +68,7 @@ export function Navbar() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const recentSearches = getRecentSearches();
   const { isAuthenticated, user, logout } = useAuth();
+  const { toggle: toggleSidebar } = useSidebar();
 
   const showDropdown = focused && query.length === 0;
   const [mounted, setMounted] = useState(false);
@@ -113,46 +116,45 @@ export function Navbar() {
       <div className="mx-auto flex h-14 max-w-[1800px] items-center gap-4 px-4 lg:px-6">
         {/* Left — hamburger + logo */}
         <div className="flex shrink-0 items-center gap-2">
-          {mounted && (
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-white/50 hover:text-white lg:hidden">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-72 bg-[#0f0f0f] border-white/10">
-                <nav className="mt-8 space-y-1">
-                  {["Home", "Trending", "Subscriptions", "Library"].map((item) => (
-                    <Link
-                      key={item}
-                      href={item === "Home" ? "/" : `/${item.toLowerCase()}`}
-                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/70 transition hover:bg-white/5 hover:text-white"
-                    >
-                      {item}
-                    </Link>
-                  ))}
-                </nav>
-              </SheetContent>
-            </Sheet>
-          )}
+          {/* Desktop sidebar toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden h-9 w-9 lg:flex text-white/50 hover:text-white"
+            onClick={toggleSidebar}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          {/* Mobile sidebar toggle */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-white/50 hover:text-white lg:hidden">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[280px] border-border bg-background p-0">
+              <SidebarContent onClose={() => { }} />
+            </SheetContent>
+          </Sheet>
           <Logo size="md" />
         </div>
 
         {/* Center — search bar (desktop) */}
         <div className="relative hidden flex-1 justify-center md:flex">
           <div className="relative w-full max-w-2xl">
-            <form onSubmit={handleSubmit} className="flex">
-              {/* Input */}
+            <form onSubmit={handleSubmit} className="flex items-center">
+              {/* Input wrapper */}
               <div
-                className={`relative flex flex-1 items-center overflow-hidden rounded-l-full border transition-all duration-300 ${
-                  focused
-                    ? "border-violet-500/60 bg-[#181818] shadow-lg shadow-violet-500/5"
-                    : "border-white/[0.08] bg-[#121212] hover:border-white/[0.15]"
-                }`}
+                className={`relative flex flex-1 items-center h-10 rounded-full border transition-all duration-300 ease-out ${focused
+                  ? "border-violet-500/50 bg-[#161616] shadow-[0_0_20px_rgba(139,92,246,0.08)]"
+                  : "border-white/[0.06] bg-[#0f0f0f] hover:border-white/[0.12] hover:bg-[#141414]"
+                  }`}
               >
-                {focused && (
-                  <Search className="ml-4 h-4 w-4 shrink-0 text-white/40" />
-                )}
+                {/* Search icon */}
+                <div className={`flex items-center justify-center w-10 h-full transition-all duration-300 ${focused ? "text-violet-400" : "text-white/30"}`}>
+                  <Search className="h-4 w-4" />
+                </div>
+
                 <input
                   ref={inputRef}
                   type="text"
@@ -160,9 +162,7 @@ export function Navbar() {
                   onChange={(e) => setQuery(e.target.value)}
                   onFocus={() => setFocused(true)}
                   placeholder="Search videos, channels, topics..."
-                  className={`h-10 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/25 ${
-                    focused ? "pl-3 pr-2" : "pl-5 pr-2"
-                  }`}
+                  className="flex-1 h-full bg-transparent text-sm text-white outline-none placeholder:text-white/20"
                   autoComplete="off"
                   spellCheck={false}
                 />
@@ -172,9 +172,9 @@ export function Navbar() {
                   <button
                     type="button"
                     onClick={clearSearch}
-                    className="mr-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white/40 transition hover:bg-white/10 hover:text-white"
+                    className="flex items-center justify-center w-8 h-8 mr-1 rounded-full text-white/30 transition-all duration-200 hover:bg-white/10 hover:text-white"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
@@ -182,9 +182,9 @@ export function Navbar() {
               {/* Search button */}
               <button
                 type="submit"
-                className="flex h-10 w-16 shrink-0 items-center justify-center rounded-r-full border border-l-0 border-white/[0.08] bg-[#222] text-white/50 transition-all hover:bg-[#333] hover:text-white active:bg-[#444]"
+                className="relative ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/5 text-white/50 transition-all duration-300 hover:bg-violet-600 hover:text-white before:absolute before:inset-0 before:rounded-full before:border before:border-white/10"
               >
-                <Search className="h-[18px] w-[18px]" />
+                <Search className="h-4 w-4" />
               </button>
             </form>
 
@@ -192,21 +192,21 @@ export function Navbar() {
             {showDropdown && (
               <div
                 ref={dropdownRef}
-                className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1a1a1a] py-3 shadow-2xl shadow-black/60"
+                className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0f0f0f]/95 backdrop-blur-xl shadow-2xl"
               >
                 {/* Recent searches */}
                 {recentSearches.length > 0 && (
-                  <div className="mb-2">
-                    <p className="mb-1 px-4 text-[11px] font-semibold uppercase tracking-wider text-white/25">
+                  <div className="p-2">
+                    <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/25">
                       Recent
                     </p>
                     {recentSearches.map((s) => (
                       <button
                         key={s}
                         onClick={() => handleSearch(s)}
-                        className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-white/70 transition hover:bg-white/5 hover:text-white"
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/60 transition-all duration-200 hover:bg-white/5 hover:text-white"
                       >
-                        <Clock className="h-3.5 w-3.5 shrink-0 text-white/30" />
+                        <Clock className="h-4 w-4 text-white/25" />
                         <span className="truncate">{s}</span>
                       </button>
                     ))}
@@ -215,21 +215,21 @@ export function Navbar() {
 
                 {/* Divider */}
                 {recentSearches.length > 0 && (
-                  <div className="mx-4 my-1 h-px bg-white/[0.06]" />
+                  <div className="mx-4 my-1 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
                 )}
 
                 {/* Trending suggestions */}
-                <div>
-                  <p className="mb-1 px-4 text-[11px] font-semibold uppercase tracking-wider text-white/25">
+                <div className="p-2">
+                  <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/25">
                     Trending
                   </p>
                   {TRENDING_SUGGESTIONS.map((s) => (
                     <button
                       key={s}
                       onClick={() => handleSearch(s)}
-                      className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-white/70 transition hover:bg-white/5 hover:text-white"
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/60 transition-all duration-200 hover:bg-white/5 hover:text-white"
                     >
-                      <TrendingUp className="h-3.5 w-3.5 shrink-0 text-violet-400/60" />
+                      <TrendingUp className="h-4 w-4 text-violet-400/50" />
                       <span className="truncate">{s}</span>
                     </button>
                   ))}
@@ -297,7 +297,6 @@ export function Navbar() {
       {/* ── Mobile fullscreen search ──────────────────────────────────── */}
       {mobileSearchOpen && (
         <div className="fixed inset-0 z-[100] bg-[#0f0f0f]">
-          {/* Top bar */}
           <div className="flex h-14 items-center gap-3 border-b border-white/[0.06] px-3">
             <button
               onClick={() => setMobileSearchOpen(false)}
@@ -306,20 +305,22 @@ export function Navbar() {
               <ArrowLeft className="h-5 w-5" />
             </button>
 
-            <form onSubmit={handleSubmit} className="flex flex-1 gap-2">
-              <div className="relative flex flex-1 items-center rounded-full border border-white/[0.1] bg-[#181818]">
-                <Search className="ml-3 h-4 w-4 shrink-0 text-white/30" />
+            <form onSubmit={handleSubmit} className="flex flex-1 items-center gap-2">
+              <div className="relative flex flex-1 items-center h-10 rounded-full border border-white/[0.08] bg-[#141414]">
+                <div className="flex items-center justify-center w-10 h-full text-white/40">
+                  <Search className="h-4 w-4" />
+                </div>
                 <input
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search..."
+                  placeholder="Search videos, channels, topics..."
                   autoFocus
-                  className="h-10 flex-1 bg-transparent px-3 text-sm text-white outline-none placeholder:text-white/25"
+                  className="flex-1 h-full bg-transparent text-sm text-white outline-none placeholder:text-white/20"
                   autoComplete="off"
                 />
                 {query.length > 0 && (
-                  <button type="button" onClick={clearSearch} className="mr-2 text-white/40">
+                  <button type="button" onClick={clearSearch} className="flex items-center justify-center w-8 h-8 mr-1 rounded-full text-white/30 hover:bg-white/10 hover:text-white">
                     <X className="h-4 w-4" />
                   </button>
                 )}
@@ -333,19 +334,18 @@ export function Navbar() {
             </form>
           </div>
 
-          {/* Mobile suggestions */}
           <div className="p-4 space-y-4">
             {recentSearches.length > 0 && (
               <div>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/25">Recent</p>
+                <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/25">Recent</p>
                 <div className="space-y-1">
                   {recentSearches.map((s) => (
                     <button
                       key={s}
                       onClick={() => handleSearch(s)}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/70 transition hover:bg-white/5"
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/60 transition hover:bg-white/5 hover:text-white"
                     >
-                      <Clock className="h-4 w-4 text-white/30" />
+                      <Clock className="h-4 w-4 text-white/25" />
                       {s}
                     </button>
                   ))}
@@ -353,15 +353,15 @@ export function Navbar() {
               </div>
             )}
             <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/25">Trending</p>
+              <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/25">Trending</p>
               <div className="space-y-1">
                 {TRENDING_SUGGESTIONS.map((s) => (
                   <button
                     key={s}
                     onClick={() => handleSearch(s)}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/70 transition hover:bg-white/5"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/60 transition hover:bg-white/5 hover:text-white"
                   >
-                    <TrendingUp className="h-4 w-4 text-violet-400/60" />
+                    <TrendingUp className="h-4 w-4 text-violet-400/50" />
                     {s}
                   </button>
                 ))}

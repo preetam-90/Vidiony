@@ -10,13 +10,15 @@ import { scheduleRecurringJobs } from "./queue.js";
 import { createTrendingWorker } from "./trending.job.js";
 import { createTokenRefreshWorker } from "./token-refresh.job.js";
 import { createCleanupWorker } from "./cleanup.job.js";
+import { createRecommendationsWorker } from "./recommendations.job.js";
 
 console.log("[Worker] Starting Vidion background workers...");
 
 // Start all workers
-const trendingWorker = createTrendingWorker();
-const tokenWorker = createTokenRefreshWorker();
-const cleanupWorker = createCleanupWorker();
+const trendingWorker       = createTrendingWorker();
+const tokenWorker          = createTokenRefreshWorker();
+const cleanupWorker        = createCleanupWorker();
+const recommendationsWorker = createRecommendationsWorker();
 
 // Schedule recurring jobs
 await scheduleRecurringJobs();
@@ -30,6 +32,7 @@ const shutdown = async () => {
     trendingWorker.close(),
     tokenWorker.close(),
     cleanupWorker.close(),
+    recommendationsWorker.close(),
   ]);
   process.exit(0);
 };

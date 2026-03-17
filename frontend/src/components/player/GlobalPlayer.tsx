@@ -63,6 +63,7 @@ export function GlobalPlayer() {
     enterMiniPlayer,
     exitMiniPlayer,
     setIsTheaterMode,
+    playNextInQueue,
     _syncPlaying,
     _syncTime,
     _syncDuration,
@@ -208,24 +209,37 @@ export function GlobalPlayer() {
       const onTime = () => _syncTime(video.currentTime);
       const onDuration = () => _syncDuration(isFinite(video.duration) ? video.duration : 0);
       const onVolume = () => _syncVolume(video.volume, video.muted);
+      const onEnded = () => {
+        // Get next video in queue and play it
+        const { queue, currentQueueIndex, playNextInQueue } = usePlayerStore.getState();
+        if (queue.length > 0 && currentQueueIndex < queue.length - 1) {
+          playNextInQueue();
+          const nextItem = queue[currentQueueIndex + 1];
+          if (nextItem) {
+            router.push(`/watch/${nextItem.videoId}`);
+          }
+        }
+      };
       video.addEventListener("play", onPlay);
       video.addEventListener("pause", onPause);
       video.addEventListener("timeupdate", onTime);
       video.addEventListener("durationchange", onDuration);
       video.addEventListener("volumechange", onVolume);
+      video.addEventListener("ended", onEnded);
       detach = () => {
         video.removeEventListener("play", onPlay);
         video.removeEventListener("pause", onPause);
         video.removeEventListener("timeupdate", onTime);
         video.removeEventListener("durationchange", onDuration);
         video.removeEventListener("volumechange", onVolume);
+        video.removeEventListener("ended", onEnded);
       };
     }, VIDEO_QUERY_DELAY_MS);
     return () => {
       window.clearTimeout(timer);
       detach?.();
     };
-  }, [videoMeta?.videoId, _syncPlaying, _syncTime, _syncDuration, _syncVolume]);
+  }, [videoMeta?.videoId, _syncPlaying, _syncTime, _syncDuration, _syncVolume, router]);
 
   // ─── Slot mode: RAF loop syncs position to #player-slot ──────────────────
   useLayoutEffect(() => {
@@ -263,25 +277,25 @@ export function GlobalPlayer() {
   // Mini mode: position from state. Slot mode: RAF writes top/left/width/height.
   const style: React.CSSProperties = isMini
     ? {
-        position: "fixed",
-        bottom: `${miniPos.bottom}px`,
-        right: `${miniPos.right}px`,
-        width: `${MINI_W}px`,
-        height: `${MINI_H}px`,
-        // Clear slot-mode RAF values so they don't linger.
-        top: "",
-        left: "",
-        cursor: isDragging ? "grabbing" : "grab",
-        userSelect: "none",
-      }
+      position: "fixed",
+      bottom: `${miniPos.bottom}px`,
+      right: `${miniPos.right}px`,
+      width: `${MINI_W}px`,
+      height: `${MINI_H}px`,
+      // Clear slot-mode RAF values so they don't linger.
+      top: "",
+      left: "",
+      cursor: isDragging ? "grabbing" : "grab",
+      userSelect: "none",
+    }
     : {
-        // RAF overwrites these every frame; provide safe defaults for first paint.
-        position: "fixed",
-        top: "0px",
-        left: "0px",
-        width: "100%",
-        height: "auto",
-      };
+      // RAF overwrites these every frame; provide safe defaults for first paint.
+      position: "fixed",
+      top: "0px",
+      left: "0px",
+      width: "100%",
+      height: "auto",
+    };
 
   return (
     <div

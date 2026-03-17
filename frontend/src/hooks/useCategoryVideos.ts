@@ -14,6 +14,19 @@ const CATEGORY_QUERIES: Record<string, string> = {
   "data-science": "data science analytics python pandas numpy",
   devops: "devops ci cd docker kubernetes infrastructure automation",
   shorts: "programming shorts coding tutorial quick tips",
+  gaming: "gaming highlights best moments 2025",
+  music: "music hits trending songs 2025",
+  podcasts: "podcast interview technology 2025",
+  news: "breaking news world today 2025",
+  live: "live stream technology coding now",
+  science: "science discovery space technology 2025",
+  sports: "sports highlights best plays 2025",
+  cooking: "cooking recipe tutorial chef 2025",
+  film: "movie trailer film review 2025",
+  education: "education online learning tutorial 2025",
+  fitness: "fitness workout exercise home 2025",
+  travel: "travel vlog adventure destination 2025",
+  design: "graphic design ui ux tutorial 2025",
 };
 
 export function useCategoryVideos(category: string) {

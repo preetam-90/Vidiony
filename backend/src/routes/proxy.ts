@@ -15,6 +15,9 @@
  * NOTE: Uses Node's native fetch, NOT the Innertube session client.
  * The CDN URLs produced by yt-dlp are pre-signed — they don't need YouTube
  * API credentials, and adding them would actually break the request.
+ *
+ * SECURITY: Rate limited to prevent DoS attacks. Each IP/user is limited
+ * to 100 requests per minute for streaming endpoints.
  */
 
 import type { FastifyPluginAsync } from "fastify";
@@ -34,9 +37,21 @@ const ALLOWED_DOMAINS = [
 ];
 
 const proxyRoutes: FastifyPluginAsync = async (fastify) => {
+  // Rate limit for streaming proxy - higher limit for authenticated users
+  const streamRateLimit = fastify.rateLimit({
+    max: 100, // 100 requests per minute
+    timeWindow: 60 * 1000,
+    keyGenerator: (req: any) => {
+      const userId = (req as any).user?.id;
+      return userId ? `user:${userId}` : req.ip;
+    },
+    skipOnError: true,
+  });
+
   fastify.route({
     method: ["GET", "HEAD"],
     url: "/stream",
+    preHandler: [streamRateLimit],
     handler: async (req, reply) => {
       const { url } = req.query as { url?: string };
 

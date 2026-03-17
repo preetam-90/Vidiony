@@ -1,5 +1,3 @@
-// Prisma schema for Vidion platform
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,111 +8,109 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ─── Vidion Users ─────────────────────────────────────────────────────────────
-
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  username  String   @unique
-  password  String
-  name      String?
-  avatar    String?
-  bio       String?
-  verified  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // YouTube OAuth connection
-  youtubeTokens     String?  // AES-GCM encrypted JSON
-  youtubeConnected  Boolean  @default(false)
-  youtubeChannelId  String?
-  youtubeHandle     String?
-
-  // Google login
-  googleId          String?  @unique
-
-  // Relations (platform videos / social)
-  sessions      UserSession[]
-  history       WatchHistory[]
-  downloads     DownloadQueue[]
-  videos        Video[]
-  comments      Comment[]
-  likes         Like[]
-  subscriptions Subscription[] @relation("subscribedTo")
-  subscribers   Subscription[] @relation("subscribedBy")
+  id               String            @id @default(uuid())
+  email            String            @unique
+  username         String            @unique
+  password         String
+  name             String?
+  avatar           String?
+  bio              String?
+  verified         Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  youtubeTokens    String?
+  youtubeConnected Boolean           @default(false)
+  youtubeChannelId String?
+  youtubeHandle    String?
+  googleId         String?           @unique
+  comments         Comment[]
+  downloads        DownloadQueue[]
+  likes            Like[]
+  subscriptions    Subscription[]    @relation("subscribedTo")
+  subscribers      Subscription[]    @relation("subscribedBy")
+  interactions     UserInteraction[]
+  sessions         UserSession[]
+  videos           Video[]
+  history          WatchHistory[]
+  watchLater       WatchLater[]
+  playlists        Playlist[]
 
   @@map("users")
 }
 
-// ─── Auth Sessions (refresh tokens) ─────────────────────────────────────────
-
 model UserSession {
-  id          String   @id @default(uuid())
-  userId      String
-  tokenHash   String   @unique  // bcrypt hash of the refresh token
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
-  lastUsedAt  DateTime?            // last time the refresh token was used
-  ipAddress   String?
-  userAgent   String?
-
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  ipAddress  String?
+  userAgent  String?
+  lastUsedAt DateTime?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("user_sessions")
 }
 
-// ─── Trending Cache (refreshed every 6h via BullMQ) ─────────────────────────
-
 model TrendingVideo {
-  id          String           @id   // YouTube video ID
-  title       String
-  thumbnail   String
-  channelName String
-  channelId   String
+  id           String           @id
+  title        String
+  thumbnail    String
+  channelName  String
+  channelId    String
   channelThumb String?
-  viewCount   String
-  publishedAt String
-  duration    String
-  category    TrendingCategory
-  rank        Int
-  rawData     Json             // Full youtubei.js response
-  updatedAt   DateTime         @updatedAt
+  viewCount    String
+  publishedAt  String
+  duration     String
+  category     TrendingCategory
+  rank         Int
+  rawData      Json
+  updatedAt    DateTime         @updatedAt
 
   @@index([category])
   @@map("trending_videos")
 }
 
-enum TrendingCategory {
-  TRENDING
-  MUSIC
-  GAMING
-  MOVIES
-  NEWS
-}
-
-// ─── Watch History ────────────────────────────────────────────────────────────
-
 model WatchHistory {
-  id        String   @id @default(uuid())
-  userId    String
-  videoId   String   // YouTube video ID
-  title     String?
-  thumbnail String?
+  id          String   @id @default(uuid())
+  userId      String
+  videoId     String
+  title       String?
+  thumbnail   String?
   channelName String?
-  duration  Int?     // seconds
-  progress  Int      @default(0) // seconds watched
-  watchedAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  duration    Int?
+  progress    Int      @default(0)
+  watchedAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  category    String?
+  channelId   String?
+  tags        String[]
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, videoId])
   @@index([userId, watchedAt(sort: Desc)])
+  @@index([videoId])
+  @@index([userId, channelId])
   @@map("watch_history")
 }
 
-// ─── Download Queue ───────────────────────────────────────────────────────────
+model UserInteraction {
+  id         String          @id @default(uuid())
+  userId     String
+  videoId    String
+  actionType InteractionType
+  metadata   Json?
+  createdAt  DateTime        @default(now())
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([videoId])
+  @@index([userId, actionType])
+  @@index([userId, videoId])
+  @@map("user_interactions")
+}
 
 model DownloadQueue {
   id          String         @id @default(uuid())
@@ -127,21 +123,11 @@ model DownloadQueue {
   requestedAt DateTime       @default(now())
   completedAt DateTime?
   error       String?
-
   user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("download_queue")
 }
-
-enum DownloadStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-}
-
-// ─── Platform Videos (user-uploaded content on Vidion itself) ────────────────
 
 model Video {
   id          String     @id @default(uuid())
@@ -156,31 +142,26 @@ model Video {
   tags        String[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
-
   userId      String
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   comments    Comment[]
   likes       Like[]
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("videos")
 }
 
 model Comment {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   videoId   String
-  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
-
   parentId  String?
   parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
   replies   Comment[] @relation("CommentReplies")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video     @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
   @@map("comments")
 }
@@ -189,11 +170,9 @@ model Like {
   id        String   @id @default(uuid())
   type      LikeType
   createdAt DateTime @default(now())
-
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   videoId   String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
   @@unique([userId, videoId])
@@ -203,15 +182,55 @@ model Like {
 model Subscription {
   id             String   @id @default(uuid())
   createdAt      DateTime @default(now())
-
   subscriberId   String
-  subscriber     User     @relation("subscribedBy", fields: [subscriberId], references: [id], onDelete: Cascade)
-
   subscribedToId String
   subscribedTo   User     @relation("subscribedTo", fields: [subscribedToId], references: [id], onDelete: Cascade)
+  subscriber     User     @relation("subscribedBy", fields: [subscriberId], references: [id], onDelete: Cascade)
 
   @@unique([subscriberId, subscribedToId])
   @@map("subscriptions")
+}
+
+model WatchLater {
+  id          String   @id @default(uuid())
+  userId      String
+  videoId     String
+  title       String?
+  thumbnail   String?
+  channelName String?
+  channelId   String?
+  duration    String?
+  addedAt     DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([userId, addedAt(sort: Desc)])
+  @@map("watch_later")
+}
+
+enum TrendingCategory {
+  TRENDING
+  MUSIC
+  GAMING
+  MOVIES
+  NEWS
+}
+
+enum InteractionType {
+  LIKE
+  DISLIKE
+  COMMENT
+  SHARE
+  SUBSCRIBE
+  SAVE
+  SKIP
+}
+
+enum DownloadStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }
 
 enum Visibility {
@@ -223,4 +242,38 @@ enum Visibility {
 enum LikeType {
   LIKE
   DISLIKE
+}
+
+enum PlaylistPrivacy {
+  PUBLIC
+  PRIVATE
+  UNLISTED
+}
+
+model Playlist {
+  id          String            @id @default(uuid())
+  name        String
+  description String?
+  privacy     PlaylistPrivacy   @default(PRIVATE)
+  userId      String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videos      PlaylistVideo[]
+  @@index([userId])
+  @@map("playlists")
+}
+
+model PlaylistVideo {
+  id         String   @id @default(uuid())
+  playlistId String
+  videoId    String
+  title      String?
+  thumbnail  String?
+  addedAt    DateTime @default(now())
+  orderIndex Int      @default(0)
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  @@unique([playlistId, videoId])
+  @@index([playlistId, orderIndex])
+  @@map("playlist_videos")
 }

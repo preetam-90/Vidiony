@@ -31,9 +31,10 @@ function getBullMQConnection() {
 export const connection = getBullMQConnection();
 
 // ─── Queue names ──────────────────────────────────────────────────────────────
-export const QUEUE_TRENDING_REFRESH = "trending-refresh";
-export const QUEUE_TOKEN_REFRESH = "token-refresh";
-export const QUEUE_CLEANUP = "cleanup";
+export const QUEUE_TRENDING_REFRESH  = "trending-refresh";
+export const QUEUE_TOKEN_REFRESH     = "token-refresh";
+export const QUEUE_CLEANUP           = "cleanup";
+export const QUEUE_RECOMMENDATIONS   = "recommendations-precompute";
 
 // ─── Queue instances ──────────────────────────────────────────────────────────
 export const trendingRefreshQueue = new Queue(QUEUE_TRENDING_REFRESH, {
@@ -64,6 +65,16 @@ export const cleanupQueue = new Queue(QUEUE_CLEANUP, {
   },
 });
 
+export const recommendationsQueue = new Queue(QUEUE_RECOMMENDATIONS, {
+  connection,
+  defaultJobOptions: {
+    removeOnComplete: 5,
+    removeOnFail: 10,
+    attempts: 2,
+    backoff: { type: "exponential", delay: 10_000 },
+  },
+});
+
 // ─── Schedule recurring jobs ──────────────────────────────────────────────────
 export async function scheduleRecurringJobs(): Promise<void> {
   const cronExpr = env.TRENDING_REFRESH_CRON;
@@ -83,6 +94,14 @@ export async function scheduleRecurringJobs(): Promise<void> {
     "daily-cleanup",
     {},
     { repeat: { pattern: "0 3 * * *" }, jobId: "daily-cleanup-recurring" }
+  );
+
+  // Recommendations precompute every 5 minutes
+  await recommendationsQueue.removeRepeatable("recommendations-precompute", { pattern: "*/5 * * * *" });
+  await recommendationsQueue.add(
+    "recommendations-precompute",
+    {},
+    { repeat: { pattern: "*/5 * * * *" }, jobId: "recommendations-precompute-recurring" }
   );
 
   console.log("[Jobs] Recurring jobs scheduled");

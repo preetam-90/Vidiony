@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import VideoHoverPreview from "@/components/video/VideoHoverPreview";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { HoverVideoPlayer } from "./video/HoverVideoPlayer";
 import { Play } from "lucide-react";
 import type { VideoCardData } from "@/lib/api";
 
@@ -14,19 +15,19 @@ export function ShortVideoCard({ video }: ShortVideoCardProps) {
   const thumb =
     video.thumbnails?.find((t) => t.width >= 320) ??
     video.thumbnails?.[video.thumbnails.length - 1];
-
+  const [isHovered, setIsHovered] = useState(false);
 
   return (
-    <Link href={`/watch/${video.id}`} className="group block">
+    <Link href={`/watch/${video.id}`} className="group block" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <div className="relative w-[160px] overflow-hidden rounded-xl bg-[#181818] transition-all duration-300 hover:translate-y-[-4px] hover:shadow-lg hover:shadow-violet-500/10">
         <div className="relative aspect-[9/16] overflow-hidden rounded-xl bg-white/5">
           {/* Gradient overlay */}
           {thumb && (
-            <img
-              src={thumb.url}
-              alt={video.title}
-              className="h-full w-full object-cover"
-              loading="lazy"
+            <HoverVideoPlayer
+              videoId={video.id}
+              thumbnailUrl={thumb.url}
+              isHovered={isHovered}
+              imageClassName="h-full w-full object-cover"
             />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />

@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { Play, Clock } from "lucide-react";
+import { useState } from "react";
+import { usePlayerStore } from "@/store/playerStore";
+import { HoverVideoPlayer } from "./video/HoverVideoPlayer";
 import { useInView } from "react-intersection-observer";
+import { WatchLaterButton } from "@/components/video/WatchLaterButton";
+import { VideoOptionsMenu } from "@/components/video/VideoOptionsMenu";
 import type { VideoCardData } from "@/lib/api";
 
 interface VideoCardProps {
@@ -18,6 +23,8 @@ function getBestThumb(thumbnails: { url: string; width: number; height: number }
 export function VideoCard({ video, priority = false }: VideoCardProps) {
   const thumb = getBestThumb(video.thumbnails);
   const channelThumb = video.channelThumbnail;
+  const [isHovered, setIsHovered] = useState(false);
+  const isAnyPlaying = usePlayerStore((s) => s.isPlaying);
 
   const { ref, inView } = useInView({
     triggerOnce: true,
@@ -25,16 +32,16 @@ export function VideoCard({ video, priority = false }: VideoCardProps) {
   });
 
   return (
-    <Link href={`/watch/${video.id}`} className="group block" ref={ref}>
+    <Link href={`/watch/${video.id}`} className="group block" ref={ref} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <div className="relative overflow-hidden rounded-xl bg-[#181818] transition-all duration-300 hover:translate-y-[-4px] hover:shadow-xl hover:shadow-violet-500/10 hover:ring-1 hover:ring-white/10">
         {/* Thumbnail */}
         <div className="relative aspect-video overflow-hidden bg-white/5">
           {(priority || inView) && thumb ? (
-            <img
-              src={thumb.url}
-              alt={video.title}
-              className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
-              loading={priority ? "eager" : "lazy"}
+            <HoverVideoPlayer
+              videoId={video.id}
+              thumbnailUrl={thumb.url}
+              isHovered={isHovered}
+              imageClassName="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
             />
           ) : (
             <div className="h-full w-full bg-white/5" />
@@ -56,6 +63,20 @@ export function VideoCard({ video, priority = false }: VideoCardProps) {
 
           {/* Top gradient for Netflix feel */}
           <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#181818] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+        </div>
+
+        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            {isAnyPlaying && (
+              <WatchLaterButton
+                videoId={video.id}
+                title={video.title}
+                thumbnail={thumb?.url}
+                channelName={video.channelName}
+                channelId={video.channelId}
+                duration={video.duration}
+                variant="icon"
+              />
+            )}
         </div>
 
         {/* Content */}
@@ -89,6 +110,15 @@ export function VideoCard({ video, priority = false }: VideoCardProps) {
               )}
             </div>
           </div>
+
+          <VideoOptionsMenu
+            videoId={video.id}
+            title={video.title}
+            thumbnail={thumb?.url}
+            channelName={video.channelName}
+            channelId={video.channelId}
+            duration={video.duration}
+          />
         </div>
       </div>
     </Link>

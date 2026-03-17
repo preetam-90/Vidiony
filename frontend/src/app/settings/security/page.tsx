@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { Sidebar } from "@/components/layout/sidebar";
+import { useSidebar } from "@/contexts/sidebar-context";
+import { cn } from "@/lib/utils";
 
 interface Session {
   id: string;
@@ -15,6 +18,9 @@ interface Session {
 }
 
 export default function SecuritySettingsPage() {
+  const { isCollapsed } = useSidebar();
+  const sidebarPadding = isCollapsed ? "lg:pl-[72px]" : "lg:pl-[248px]";
+
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -65,8 +71,10 @@ export default function SecuritySettingsPage() {
   };
 
   return (
-    <div className="container mx-auto py-12 px-4">
-      <h1 className="text-2xl font-semibold mb-6">Security</h1>
+    <div className="min-h-screen bg-[#0f0f0f]">
+      <Sidebar />
+      <div className={cn("container mx-auto py-12 px-4", sidebarPadding)}>
+        <h1 className="text-2xl font-semibold mb-6">Security</h1>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <aside className="col-span-1">
           <nav className="rounded-xl border border-white/10 bg-card/95 p-4">
@@ -117,6 +125,7 @@ export default function SecuritySettingsPage() {
             )}
           </div>
         </main>
+      </div>
       </div>
     </div>
   );

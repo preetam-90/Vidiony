@@ -159,11 +159,45 @@ export interface CaptionTrackMeta {
 export interface ChannelInfo {
   id: string;
   name: string;
+  handle?: string;
   description: string;
   thumbnails: VideoThumbnail[];
   banners: VideoThumbnail[];
   subscriberCount: string;
   videoCount: string;
+  isVerified?: boolean;
+  links?: Array<{ title: string; url: string }>;
+  tabs?: string[];
+}
+
+export interface ChannelAbout {
+  description: string;
+  subscriberCount: string;
+  videoCount: string;
+  totalViewCount: string;
+  joinedDate: string | null;
+  links: Array<{ title: string; url: string }>;
+  country: string | null;
+}
+
+export interface ChannelVideo {
+  id: string;
+  title: string;
+  thumbnail: string;
+  duration: string;
+  viewCount: string;
+  publishedAt: string;
+}
+
+export interface ChannelVideoItem {
+  type: "video" | "playlist";
+  id: string;
+  title: string;
+  thumbnail: string;
+  duration: string;
+  viewCount: string;
+  publishedAt: string;
+  videoCount: number | null;
 }
 
 export interface CommentData {
@@ -185,6 +219,8 @@ export interface AuthUser {
   avatar: string | null;
   verified: boolean;
   youtubeConnected: boolean;
+  youtubeChannelId?: string | null;
+  youtubeHandle?: string | null;
 }
 
 export interface SearchFilters {
@@ -248,12 +284,25 @@ export interface TrendingVideo {
 }
 
 export interface WatchHistoryItem {
-  id: string;
+  id: string;          // DB entry id
+  videoId: string;     // the actual video id
   title: string;
   thumbnail: string;
   channelName: string;
-  duration: string;
-  watchedAt: number;
+  duration: number | null;
+  progress: number;    // position in seconds
+  watchedAt: number;   // timestamp
+}
+
+export interface WatchLaterItem {
+  id: string;
+  videoId: string;
+  title: string | null;
+  thumbnail: string | null;
+  channelName: string | null;
+  channelId: string | null;
+  duration: string | null;
+  addedAt: string;
 }
 
 export interface Playlist {
@@ -326,6 +375,18 @@ export const api = {
 
   getChannel: (id: string) =>
     yt<{ channel: ChannelInfo }>(`/channel/${id}`),
+
+  getChannelPopular: (id: string) =>
+    v2<{ success: boolean; channelId: string; items: ChannelVideo[] }>(
+      `/channels/${id}/popular`,
+      { skipAuth: true }
+    ),
+
+  getChannelAbout: (id: string) =>
+    v2<{ success: boolean; channelId: string; about: ChannelAbout }>(
+      `/channels/${id}/about`,
+      { skipAuth: true }
+    ),
 
   streamUrl: (videoId: string, quality?: string) => {
     const base = `${API_BASE}/stream/${videoId}`;
@@ -459,10 +520,11 @@ export const api = {
 
   getChannelVideos: (
     id: string,
-    tab: "videos" | "shorts" | "live" | "playlists" = "videos"
+    tab: "videos" | "shorts" | "live" | "playlists" = "videos",
+    continuation?: string
   ) =>
-    v2<{ videos: VideoCardData[] }>(
-      `/channels/${id}/videos?tab=${tab}`,
+    v2<{ success: boolean; channelId: string; tab: string; items: ChannelVideoItem[]; continuation: string | null }>(
+      `/channels/${id}/videos?tab=${tab}${continuation ? `&continuation=${encodeURIComponent(continuation)}` : ''}`,
       { skipAuth: true }
     ),
 
@@ -531,6 +593,39 @@ export const api = {
     /** User's Watch Later playlist from YouTube */
     getWatchLater: () =>
       v2<{ videos: YTHistoryVideo[] }>("/user/youtube/watch-later"),
+
+    // ── Watch Later (Vidion-native) ─────────────────────────────────────────
+
+    /** Get paginated Watch Later list */
+    getWatchLaterList: (page = 1, limit = 20, sort: "newest" | "oldest" = "newest") =>
+      v2<{ items: WatchLaterItem[]; total: number; page: number; hasMore: boolean }>(
+        `/user/watch-later?page=${page}&limit=${limit}&sort=${sort}`
+      ),
+
+    /** Add a video to Watch Later */
+    addToWatchLater: (data: { videoId: string; title?: string; thumbnail?: string; channelName?: string; channelId?: string; duration?: string }) =>
+      v2<{ success: boolean; item: WatchLaterItem }>("/user/watch-later", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+
+    /** Remove a video from Watch Later */
+    removeFromWatchLater: (videoId: string) =>
+      v2<{ success: boolean }>(`/user/watch-later/${videoId}`, { method: "DELETE" }),
+
+    /** Check if a single video is saved */
+    checkWatchLater: (videoId: string) =>
+      v2<{ saved: boolean }>(`/user/watch-later/check/${videoId}`),
+
+    /** Batch check multiple video IDs */
+    checkWatchLaterBatch: (ids: string[]) =>
+      v2<{ saved: Record<string, boolean> }>(
+        `/user/watch-later/check?ids=${ids.join(",")}`
+      ),
+
+    /** Clear all Watch Later items */
+    clearWatchLater: () =>
+      v2<{ success: boolean }>("/user/watch-later/clear", { method: "DELETE" }),
 
     /** Subscribed channels list from YouTube */
     getYouTubeSubscriptions: () =>

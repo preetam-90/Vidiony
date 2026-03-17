@@ -4,6 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { api, type YTSubscription } from "@/lib/api";
 import { Navbar } from "@/components/layout/navbar";
+import { Sidebar } from "@/components/layout/sidebar";
+import { useSidebar } from "@/contexts/sidebar-context";
+import { cn } from "@/lib/utils";
 import { YTVideoCard, YTVideoCardSkeleton } from "@/components/video/YTVideoCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -86,6 +89,8 @@ function NotConnected() {
 
 export default function SubscriptionsPage() {
   const { isAuthenticated, user, isLoading: authLoading } = useAuth();
+  const { isCollapsed } = useSidebar();
+  const sidebarPadding = isCollapsed ? "lg:pl-[72px]" : "lg:pl-[248px]";
 
   const { data: subscriptionsData, isLoading: subsLoading } = useQuery({
     queryKey: ["yt-subscriptions"],
@@ -106,8 +111,9 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="min-h-screen bg-[#0f0f0f]">
+      <Sidebar />
       <Navbar />
-      <main className="container mx-auto px-4 py-8 max-w-6xl">
+      <main className={cn("container mx-auto px-4 py-8 max-w-6xl", sidebarPadding)}>
         <div className="mb-8 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600/20 text-violet-400">
             <BookMarked className="h-5 w-5" />

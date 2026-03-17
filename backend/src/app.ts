@@ -32,7 +32,9 @@ import channelRoutes from "./modules/channels/channels.routes.js";
 import trendingRoutes from "./modules/trending/trending.routes.js";
 import liveRoutes from "./modules/live/live.routes.js";
 import userRoutes from "./modules/users/users.routes.js";
+import playlistsRoutes from "./modules/playlists/playlists.routes.js";
 import proxyRoutes from "./routes/proxy.js";
+import homeFeedRoutes from "./routes/home-feed.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -64,13 +66,10 @@ export async function buildApp() {
   });
 
   // ─── Rate limiting (Redis store if available) ──────────────────────────────
-  // NOTE: Disabled for streaming endpoints — HLS clients poll every 5s x 6 quality levels
-  // Use route-level rate limit overrides instead of global disable for streaming routes
+  // NOTE: Streaming endpoints have custom rate limits defined at route level
   await app.register(rateLimit, {
     max: env.RATE_LIMIT_MAX,
     timeWindow: env.RATE_LIMIT_WINDOW_MS,
-    // Allow streaming/proxy endpoints to bypass global limits
-    allowList: (req) => req.url.startsWith('/proxy/') || req.url.startsWith('/live/'),
     skipOnError: true,
     // If Redis is available, use it as the backend store for rate limiting
     redis: (app as any).redis ?? undefined,
@@ -259,15 +258,31 @@ export async function buildApp() {
   });
 
   // ─── Route registration ────────────────────────────────────────────────────
-  app.register(authRoutes,         { prefix: "/auth" });
+  app.register(authRoutes, { prefix: "/auth" });
   app.register(youtubeModuleRoutes, { prefix: "/api/yt" });
-  app.register(videoRoutes,        { prefix: "/videos" });
-  app.register(searchRoutes,       { prefix: "/search" });
-  app.register(channelRoutes,      { prefix: "/channels" });
-  app.register(trendingRoutes,     { prefix: "/trending" });
-  app.register(liveRoutes,         { prefix: "/live" });
-  app.register(userRoutes,         { prefix: "/user" });
-  app.register(proxyRoutes,        { prefix: "/proxy" });
+  app.register(videoRoutes, { prefix: "/videos" });
+  app.register(searchRoutes, { prefix: "/search" });
+  app.register(channelRoutes, { prefix: "/channels" });
+  app.register(trendingRoutes, { prefix: "/trending" });
+  app.register(liveRoutes, { prefix: "/live" });
+  app.register(userRoutes, { prefix: "/user" });
+  app.register(playlistsRoutes, { prefix: "/api/playlists" });
+  app.register(proxyRoutes, { prefix: "/proxy" });
+
+  // Watch Later (Vidion-native)
+  const watchLaterRoutes = await import("./modules/watch-later/watchlater.routes.js").then(m => m.default);
+  app.register(watchLaterRoutes, { prefix: "/user/watch-later" });
+
+  // Home feed (YouTube-like homepage)
+  app.register(homeFeedRoutes, { prefix: "/api" });
+
+  // Analytics & Recommendations
+  const analyticsRoutes = await import("./modules/analytics/analytics.routes.js").then(m => m.default);
+  app.register(analyticsRoutes, { prefix: "/analytics" });
+
+  const recommendationRoutes = await import("./modules/recommendations/recommendation.routes.js").then(m => m.default);
+  app.register(recommendationRoutes, { prefix: "/recommendations" });
+
   // Watch history endpoints (player updates + history UI)
   const historyRoutes = await import("./routes/history.js").then(m => m.default);
   app.register(historyRoutes, { prefix: "/history" });

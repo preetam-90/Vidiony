@@ -71,7 +71,7 @@ const historyRoutes: FastifyPluginAsync = async (fastify) => {
       await fastify.prisma.$executeRaw`
         UPDATE watch_history
         SET progress = GREATEST(progress, ${position})
-        WHERE user_id = ${req.user!.id} AND video_id = ${videoId}
+        WHERE "userId" = ${req.user!.id} AND "videoId" = ${videoId}
       `;
 
       return reply.send({ success: true });

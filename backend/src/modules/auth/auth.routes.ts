@@ -28,6 +28,8 @@ import {
   getGoogleLoginUrl,
   exchangeGoogleLoginCode,
   findOrCreateGoogleUser,
+  getUserSessions,
+  deleteAllSessionsForUser,
 } from "./auth.service.js";
 
 const REFRESH_COOKIE = "vidion_refresh";

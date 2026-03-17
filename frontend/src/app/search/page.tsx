@@ -5,6 +5,8 @@ import { Suspense, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, type SearchResult, type SearchFilters } from "@/lib/api";
 import { Navbar } from "@/components/layout/navbar";
+import { Sidebar } from "@/components/layout/sidebar";
+import { useSidebar } from "@/contexts/sidebar-context";
 import { YTVideoCardSkeleton } from "@/components/video/YTVideoCard";
 import { SearchResultCard } from "@/components/video/SearchResultCard";
 import { Button } from "@/components/ui/button";
@@ -115,6 +117,9 @@ function PlaylistResultCard({ result }: { result: SearchResult }) {
 // ─── Main search results ───────────────────────────────────────────────────────
 
 function SearchResults() {
+  const { isCollapsed } = useSidebar();
+  const sidebarPadding = isCollapsed ? "lg:pl-[72px]" : "lg:pl-[248px]";
+
   const searchParams = useSearchParams();
   const router = useRouter();
   const query = searchParams.get("q") ?? "";
@@ -163,8 +168,9 @@ function SearchResults() {
 
   return (
     <div className="min-h-screen bg-[#0f0f0f]">
+      <Sidebar />
       <Navbar />
-      <main className="container mx-auto px-4 py-8 max-w-6xl">
+      <main className={cn("container mx-auto px-4 py-8 max-w-6xl", sidebarPadding)}>
         {query ? (
           <>
             {/* Header */}

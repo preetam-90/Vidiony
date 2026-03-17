@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/auth-context";
 import { useWatchHistory } from "@/store/watch-history";
 import { api, type YTHistoryVideo, type YTHistorySection } from "@/lib/api";
 import { Navbar } from "@/components/layout/navbar";
+import { Sidebar } from "@/components/layout/sidebar";
+import { useSidebar } from "@/contexts/sidebar-context";
 import { YTVideoCard } from "@/components/video/YTVideoCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,6 +20,7 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { usePlaylists } from "@/hooks/usePlaylists";
 
 // ─── Shared video row card ─────────────────────────────────────────────────────
 
@@ -372,6 +375,55 @@ function PlaylistsTab() {
   );
 }
 
+// ─── Local playlists tab ──────────────────────────────────────────────────────
+
+function LocalPlaylistsTab() {
+  const { data: playlists, isLoading, error } = usePlaylists();
+
+  if (isLoading) return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="space-y-2">
+          <Skeleton className="aspect-video rounded-xl" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+      ))}
+    </div>
+  );
+
+  if (error) return <div className="py-8 text-center text-sm text-muted-foreground">Failed to load playlists.</div>;
+
+  const items = playlists ?? [];
+  if (items.length === 0) return (
+    <div className="py-16 text-center text-muted-foreground">
+      <ListVideo className="h-12 w-12 mx-auto mb-4 opacity-30" />
+      <p>No playlists found</p>
+      <p className="text-sm mt-1">Create playlists from any video to see them here</p>
+    </div>
+  );
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      {items.map((p) => (
+        <Link key={p.id} href={`/playlist/${p.id}`}
+          className="group flex flex-col rounded-xl overflow-hidden border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/10 transition-all">
+          <div className="relative aspect-video bg-white/5 flex items-center justify-center">
+            <ListVideo className="h-8 w-8 text-white/20" />
+            <div className="absolute bottom-1 right-1 flex items-center gap-1 rounded px-1.5 py-0.5 bg-black/80 text-[10px]">
+              <ListVideo className="h-3 w-3" />{p._count?.videos ?? 0}
+            </div>
+          </div>
+          <div className="p-3">
+            <p className="font-medium text-sm line-clamp-1">{p.name}</p>
+            {p.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{p.description}</p>}
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 const TABS = [
@@ -379,11 +431,14 @@ const TABS = [
   { value: "liked",         label: "Liked Videos",     icon: ThumbsUp,      ytRequired: true },
   { value: "watch-later",   label: "Watch Later",      icon: BookmarkPlus,  ytRequired: true },
   { value: "playlists",     label: "Playlists",        icon: ListVideo,     ytRequired: true },
+  { value: "local-playlists", label: "Vidion Playlists", icon: ListVideo,   ytRequired: false },
   { value: "local-history", label: "Local History",    icon: Eye,           ytRequired: false },
 ] as const;
 
 export default function LibraryPage() {
   const { isAuthenticated, user, isLoading: authLoading } = useAuth();
+  const { isCollapsed } = useSidebar();
+  const sidebarPadding = isCollapsed ? "lg:pl-[72px]" : "lg:pl-[248px]";
   const ytConnected = !!user?.youtubeConnected;
 
   const handleConnectYT = async () => {
@@ -395,8 +450,9 @@ export default function LibraryPage() {
 
   return (
     <div className="min-h-screen bg-[#0f0f0f]">
+      <Sidebar />
       <Navbar />
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
+      <main className={cn("container mx-auto px-4 py-8 max-w-4xl", sidebarPadding)}>
 
         {/* Page header */}
         <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
@@ -470,6 +526,10 @@ export default function LibraryPage() {
 
             <TabsContent value="playlists">
               {ytConnected ? <PlaylistsTab /> : <ConnectYouTubeCTA title="Connect YouTube to see playlists" description="All your YouTube playlists in one place." />}
+            </TabsContent>
+
+            <TabsContent value="local-playlists">
+              <LocalPlaylistsTab />
             </TabsContent>
 
             <TabsContent value="local-history">

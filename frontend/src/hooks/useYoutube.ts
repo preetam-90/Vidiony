@@ -49,7 +49,6 @@ export function useRelatedVideos(id: string) {
   });
 }
 
-/** Comments */
 /** Channel info */
 export function useChannel(id: string) {
   return useQuery({
@@ -58,5 +57,27 @@ export function useChannel(id: string) {
     enabled: !!id,
     staleTime: 10 * 60 * 1000,
     select: (data) => data.channel,
+  });
+}
+
+/** Channel popular videos (sorted by viewCount) */
+export function useChannelPopular(id: string) {
+  return useQuery({
+    queryKey: ["channel-popular", id],
+    queryFn: () => api.getChannelPopular(id),
+    enabled: !!id,
+    staleTime: 60 * 60 * 1000, // 1 hour
+    select: (data) => data.items,
+  });
+}
+
+/** Channel about info with joinedDate */
+export function useChannelAbout(id: string) {
+  return useQuery({
+    queryKey: ["channel-about", id],
+    queryFn: () => api.getChannelAbout(id),
+    enabled: !!id,
+    staleTime: 4 * 60 * 60 * 1000, // 4 hours
+    select: (data) => data.about,
   });
 }

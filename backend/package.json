@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "dev:worker": "tsx watch src/jobs/worker.ts",
+    "prepare": "prisma generate",
     "start": "node dist/index.js",
     "build": "tsc",
     "db:generate": "prisma generate",

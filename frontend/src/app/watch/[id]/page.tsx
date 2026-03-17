@@ -1,21 +1,30 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useVideo } from "@/hooks/useYoutube";
 import { useWatchHistory } from "@/store/watch-history";
 import { useAuth } from "@/contexts/auth-context";
 import { api } from "@/lib/api";
 import { Navbar } from "@/components/layout/navbar";
+import { Sidebar } from "@/components/layout/sidebar";
+import { useSidebar } from "@/contexts/sidebar-context";
+import { cn } from "@/lib/utils";
 import { createStoryboardPreviewResolver } from "@/components/VideoPlayer/storyboard";
 import { CommentSection } from "@/components/video/CommentSection";
 import { RelatedVideos } from "@/components/video/RelatedVideos";
+import { VideoRecommendationPanel } from "@/components/video/PersonalizedSections";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import type { CaptionTrack } from "@/hooks/usePlayerState";
+import {
+  useTrackWatch,
+  useTrackInteraction,
+  useVideoRecommendations,
+} from "@/hooks/useRecommendations";
 import {
   ChevronLeft, ThumbsUp, ThumbsDown, Share2, Eye,
   Clock, User, Download, Bell, BellOff,
@@ -25,6 +34,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { LiveChat } from "@/components/video/LiveChat";
 import { VideoDescription } from "@/components/video/VideoDescription";
+import { WatchLaterButton } from "@/components/video/WatchLaterButton";
 import { usePlayerStore } from "@/store/playerStore";
 import { playerFunctions } from "@/lib/playerFunctions";
 
@@ -35,6 +45,9 @@ function formatNumber(num: number) {
 }
 
 export default function WatchPage() {
+  const { isCollapsed } = useSidebar();
+  const sidebarPadding = isCollapsed ? "lg:pl-[72px]" : "lg:pl-[248px]";
+
   const params = useParams();
   const videoId = params.id as string;
   const { data: video, isLoading, error } = useVideo(videoId);
@@ -44,6 +57,17 @@ export default function WatchPage() {
 
   // ─── Global player store ──────────────────────────────────────────────────
   const { playVideo, exitMiniPlayer, isTheaterMode: isTheater, isMiniPlayer } = usePlayerStore();
+
+  // ─── Analytics ────────────────────────────────────────────────────────────
+  const trackWatch = useTrackWatch();
+  const trackInteraction = useTrackInteraction();
+  const watchStartRef = useRef<number>(Date.now());
+
+  // Personalized sidebar recommendations
+  const {
+    data: videoRecs,
+    isLoading: videoRecsLoading,
+  } = useVideoRecommendations(videoId);
 
   const [liked, setLiked] = useState(false);
   const [disliked, setDisliked] = useState(false);
@@ -72,16 +96,65 @@ export default function WatchPage() {
   useEffect(() => {
     if (!video) return;
     const thumb = video.thumbnails?.[0]?.url ?? "";
-    const dur = video.duration
+    const durStr = video.duration
       ? `${Math.floor(video.duration / 60)}:${String(video.duration % 60).padStart(2, "0")}`
       : "";
 
-    addToHistory({ id: video.id, title: video.title, thumbnail: thumb, channelName: video.channelName, duration: dur });
+    addToHistory({ id: video.id, title: video.title, thumbnail: thumb, channelName: video.channelName, duration: durStr });
 
     if (isAuthenticated) {
-      api.user.recordHistory({ id: video.id, title: video.title, thumbnail: thumb, channelName: video.channelName, duration: dur }).catch(() => {});
+      api.user.recordHistory({ id: video.id, videoId: video.id, title: video.title, thumbnail: thumb, channelName: video.channelName, duration: video.duration ?? null, progress: 0 }).catch(() => {});
     }
   }, [video?.id]);
+
+  // ── Analytics beacon — fires every 30s while the page is open ─────────────
+  useEffect(() => {
+    if (!video || !isAuthenticated) return;
+
+    watchStartRef.current = Date.now();
+
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - watchStartRef.current) / 1000);
+      const pct = video.duration && video.duration > 0
+        ? Math.min(100, (elapsed / video.duration) * 100)
+        : 0;
+
+      trackWatch({
+        videoId: video.id,
+        watchTime: elapsed,
+        watchPercentage: pct,
+        duration: video.duration ?? undefined,
+        title: video.title,
+        thumbnail: video.thumbnails?.[0]?.url,
+        channelId: video.channelId,
+        channelName: video.channelName,
+        category: video.category ?? undefined,
+        tags: video.tags?.slice(0, 15),
+      });
+    }, 30_000);
+
+    // Fire once on unmount to capture final watch position
+    return () => {
+      clearInterval(interval);
+      const elapsed = Math.floor((Date.now() - watchStartRef.current) / 1000);
+      if (elapsed >= 5) {
+        const pct = video.duration && video.duration > 0
+          ? Math.min(100, (elapsed / video.duration) * 100)
+          : 0;
+        trackWatch({
+          videoId: video.id,
+          watchTime: elapsed,
+          watchPercentage: pct,
+          duration: video.duration ?? undefined,
+          title: video.title,
+          thumbnail: video.thumbnails?.[0]?.url,
+          channelId: video.channelId,
+          channelName: video.channelName,
+        });
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [video?.id, isAuthenticated]);
 
   useEffect(() => {
     if (!videoState) return;
@@ -99,6 +172,8 @@ export default function WatchPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["video-state", videoId, video?.channelId] });
+      // Signal the recommendation engine
+      if (!liked) trackInteraction.mutate({ videoId, actionType: "LIKE" });
     },
     onError: (err) => {
       setLiked(liked);
@@ -114,6 +189,8 @@ export default function WatchPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["video-state", videoId, video?.channelId] });
+      // Dislike = negative signal → bust recommendation cache immediately
+      if (!disliked) trackInteraction.mutate({ videoId, actionType: "DISLIKE" });
     },
     onError: (err) => {
       setDisliked(disliked);
@@ -216,9 +293,10 @@ export default function WatchPage() {
 
   return (
     <div className="min-h-screen bg-[#0f0f0f]">
+      <Sidebar />
       <Navbar />
 
-      <main className="container mx-auto px-4 py-6 max-w-[1600px]">
+      <main className={cn("container mx-auto px-4 py-6 max-w-[1600px]", sidebarPadding)}>
         <Button variant="ghost" className="mb-4 gap-2" onClick={() => window.history.back()}>
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
@@ -362,6 +440,17 @@ export default function WatchPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* Watch Later */}
+                  <WatchLaterButton
+                    videoId={videoId}
+                    title={video.title}
+                    thumbnail={video.thumbnails?.[0]?.url}
+                    channelName={video.channelName}
+                    channelId={video.channelId}
+                    duration={video.duration ? `${Math.floor(video.duration / 60)}:${String(video.duration % 60).padStart(2, "0")}` : undefined}
+                    variant="full"
+                  />
                 </div>
               </div>
 
@@ -454,7 +543,20 @@ export default function WatchPage() {
             {!isTheater && (
               <div className="space-y-4">
                 {video.isLive && <LiveChat videoId={video.id} />}
-                <RelatedVideos videoId={video.id} fallbackQuery={`${video.title} ${video.channelName}`.trim()} />
+
+                {/* Personalized engine recommendations first */}
+                {(videoRecs?.related && videoRecs.related.length >= 5) ? (
+                  <VideoRecommendationPanel
+                    items={videoRecs.related}
+                    isLoading={videoRecsLoading}
+                  />
+                ) : (
+                  /* Fallback to YouTube's own related videos */
+                  <RelatedVideos
+                    videoId={video.id}
+                    fallbackQuery={`${video.title} ${video.channelName}`.trim()}
+                  />
+                )}
               </div>
             )}
           </div>

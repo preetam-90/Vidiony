@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/auth-context";
+import { useSidebar } from "@/contexts/sidebar-context";
 import { api } from "@/lib/api";
 import { useState, useEffect, useRef, useCallback } from "react";
 
@@ -36,6 +37,7 @@ export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuth();
+  const { toggle: toggleSidebar } = useSidebar();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -122,8 +124,18 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/80 backdrop-blur-xl">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        {/* Logo */}
-        <Logo size="md" />
+        {/* Hamburger Menu + Logo */}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="hidden lg:flex h-10 w-10 hover:bg-white/10 rounded-full"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <Logo size="md" />
+        </div>
 
         {/* Desktop Search with autocomplete */}
         <div ref={searchRef} className="relative hidden flex-1 md:flex md:max-w-md md:px-4">

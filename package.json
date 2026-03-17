@@ -9,5 +9,9 @@
     "build": "pnpm --filter frontend build && pnpm --filter vidion-backend build",
     "lint": "pnpm --filter frontend lint",
     "install:all": "pnpm install"
-  }
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ]
 }
