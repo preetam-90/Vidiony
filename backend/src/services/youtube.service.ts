@@ -723,8 +723,13 @@ export async function getChannelInfo(channelId: string): Promise<ChannelInfo> {
     thumbnails: getThumbnails(channel.metadata?.thumbnail ?? []),
     banners: getThumbnails((channel as any).header?.banner?.thumbnails ?? []),
     subscriberCount: getText(
+      (channel as any).header?.c4TabbedHeader?.subscriberCount ??
+      (channel as any).header?.subscriberCount ??
       (channel as any).header?.subscriber_count ??
-      (channel.metadata as any)?.subscriber_count
+      (channel.metadata as any)?.subscriber_count ??
+      (channel.metadata as any)?.viewCount ??
+      (channel as any).defaultSubscriberCount ??
+      ""
     ),
     videoCount: getText((channel as any).header?.videos_count ?? ""),
   };

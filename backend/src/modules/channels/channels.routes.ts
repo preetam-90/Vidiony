@@ -37,6 +37,56 @@ function getText(val: unknown): string {
   return "";
 }
 
+type ContinuationSource = {
+  getContinuation: () => Promise<unknown>;
+};
+
+type ContinuationState = {
+  channelId: string;
+  tab: string;
+  source: ContinuationSource;
+  expiresAt: number;
+};
+
+const CHANNEL_CONTINUATION_TTL_MS = 10 * 60 * 1000;
+const channelContinuationState = new Map<string, ContinuationState>();
+
+function pruneChannelContinuationState() {
+  const now = Date.now();
+  for (const [token, state] of channelContinuationState.entries()) {
+    if (state.expiresAt <= now) {
+      channelContinuationState.delete(token);
+    }
+  }
+}
+
+function rememberContinuationState(
+  token: string | null,
+  source: unknown,
+  channelId: string,
+  tab: string
+) {
+  if (!token) return;
+  if (!source || typeof (source as { getContinuation?: unknown }).getContinuation !== "function") return;
+
+  pruneChannelContinuationState();
+
+  channelContinuationState.set(token, {
+    channelId,
+    tab,
+    source: source as ContinuationSource,
+    expiresAt: Date.now() + CHANNEL_CONTINUATION_TTL_MS,
+  });
+}
+
+function getStoredContinuationSource(token: string, channelId: string, tab: string): ContinuationSource | null {
+  pruneChannelContinuationState();
+  const state = channelContinuationState.get(token);
+  if (!state) return null;
+  if (state.channelId !== channelId || state.tab !== tab) return null;
+  return state.source;
+}
+
 const channelRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /channels/:id
   fastify.get("/:id", async (req, reply) => {
@@ -84,7 +134,14 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
         banners: (header?.banner?.thumbnails ?? []).map((t: any) => ({
           url: t.url, width: t.width ?? 0, height: t.height ?? 0,
         })),
-        subscriberCount: getText(c4Header?.subscriberCount),
+        subscriberCount: getText(
+          c4Header?.subscriberCount ??
+          header?.subscriberCount ??
+          header?.subscriber_count ??
+          meta?.subscriber_count ??
+          meta?.viewCount ??
+          ""
+        ),
         videoCount: getText(c4Header?.videosCount),
         isVerified: header?.badges?.some((b: any) =>
           getText(b.tooltip).toLowerCase().includes("verified")
@@ -122,8 +179,25 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
 
     const cached = await getCachedData(cacheKey);
     if (cached) {
-      reply.header("X-Cache", "HIT");
-      return reply.send(cached);
+      const cachedContinuation =
+        typeof (cached as { continuation?: unknown }).continuation === "string"
+          ? (cached as { continuation: string }).continuation
+          : null;
+
+      // First page cache can contain stale continuation tokens. If we don't have
+      // live continuation state for that token, refresh from YouTube instead.
+      if (!continuation && cachedContinuation) {
+        const hasLiveContinuationState = !!getStoredContinuationSource(cachedContinuation, id, tab);
+        if (!hasLiveContinuationState) {
+          // Fall through to fresh fetch and state hydration.
+        } else {
+          reply.header("X-Cache", "HIT");
+          return reply.send(cached);
+        }
+      } else {
+        reply.header("X-Cache", "HIT");
+        return reply.send(cached);
+      }
     }
 
     try {
@@ -153,29 +227,63 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
         return null;
       }
 
+      const getInitialTabData = async () => {
+        if (tab === "videos") return await (ch as any).getVideos?.();
+        if (tab === "shorts") return await (ch as any).getShorts?.();
+        if (tab === "live") return await (ch as any).getLiveStreams?.();
+        if (tab === "playlists") return await (ch as any).getPlaylists?.();
+        return null;
+      };
+
+      const resolveContinuationFromTabWalk = async (targetToken: string) => {
+        let pageObj: any = await getInitialTabData();
+        let steps = 0;
+
+        while (pageObj && typeof pageObj.getContinuation === "function" && steps < 8) {
+          const pageToken = findContinuation(pageObj);
+          rememberContinuationState(pageToken, pageObj, id, tab);
+
+          if (!pageToken) return null;
+          if (pageToken === targetToken) {
+            return await pageObj.getContinuation();
+          }
+
+          pageObj = await pageObj.getContinuation();
+          steps += 1;
+        }
+
+        return null;
+      };
+
       // Get the right tab - store for pagination
       let tabData: any;
 
       if (continuation) {
         // Use continuation token to get more videos
         try {
-          if (typeof (yt as any).getContinuation === "function") {
-            tabData = await (yt as any).getContinuation(continuation);
-          } else if (typeof (yt as any).getContinuationFromToken === "function") {
-            tabData = await (yt as any).getContinuationFromToken(continuation);
+          const storedSource = getStoredContinuationSource(continuation, id, tab);
+
+          if (storedSource) {
+            tabData = await storedSource.getContinuation();
           } else {
-            throw new Error("Continuation API not available");
+            tabData = await resolveContinuationFromTabWalk(continuation);
+          }
+
+          if (!tabData && typeof (yt as any).getContinuation === "function") {
+            tabData = await (yt as any).getContinuation(continuation);
+          } else if (!tabData && typeof (yt as any).getContinuationFromToken === "function") {
+            tabData = await (yt as any).getContinuationFromToken(continuation);
+          }
+
+          if (!tabData) {
+            throw new Error("Continuation data not found");
           }
         } catch (err) {
           fastify.log.warn(`Continuation fetch failed for ${tab}:`, (err as any)?.message);
           return reply.status(500).send({ success: false, error: { code: "CONTINUATION_ERROR", message: "Failed to load more videos" }, items: [], continuation: null });
         }
       } else {
-        // First page
-        if (tab === "videos") tabData = await (ch as any).getVideos?.();
-        else if (tab === "shorts") tabData = await (ch as any).getShorts?.();
-        else if (tab === "live") tabData = await (ch as any).getLiveStreams?.();
-        else if (tab === "playlists") tabData = await (ch as any).getPlaylists?.();
+        tabData = await getInitialTabData();
       }
 
       // Extract items from response - handle different response structures
@@ -234,6 +342,8 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
         items,
         continuation: findContinuation(tabData),
       };
+
+      rememberContinuationState(response.continuation, tabData, id, tab);
 
       await setCachedData(cacheKey, response, 600); // Reduce to 10m for now
       reply.header("Cache-Control", "public, s-maxage=3600");
