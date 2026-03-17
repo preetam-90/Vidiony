@@ -722,15 +722,18 @@ export async function getChannelInfo(channelId: string): Promise<ChannelInfo> {
     description: getText(channel.metadata?.description),
     thumbnails: getThumbnails(channel.metadata?.thumbnail ?? []),
     banners: getThumbnails((channel as any).header?.banner?.thumbnails ?? []),
-    subscriberCount: getText(
-      (channel as any).header?.c4TabbedHeader?.subscriberCount ??
-      (channel as any).header?.subscriberCount ??
-      (channel as any).header?.subscriber_count ??
-      (channel.metadata as any)?.subscriber_count ??
-      (channel.metadata as any)?.viewCount ??
-      (channel as any).defaultSubscriberCount ??
-      ""
-    ),
+    subscriberCount: (function() {
+      const s = getText(
+        (channel as any).header?.c4TabbedHeader?.subscriberCount ??
+        (channel as any).header?.subscriberCount ??
+        (channel as any).header?.subscriber_count ??
+        (channel.metadata as any)?.subscriber_count ??
+        (channel.metadata as any)?.viewCount ??
+        (channel as any).defaultSubscriberCount ??
+        ""
+      );
+      return s || "—";
+    })(),
     videoCount: getText((channel as any).header?.videos_count ?? ""),
   };
 

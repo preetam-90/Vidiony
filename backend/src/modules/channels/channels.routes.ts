@@ -134,14 +134,17 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
         banners: (header?.banner?.thumbnails ?? []).map((t: any) => ({
           url: t.url, width: t.width ?? 0, height: t.height ?? 0,
         })),
-        subscriberCount: getText(
-          c4Header?.subscriberCount ??
-          header?.subscriberCount ??
-          header?.subscriber_count ??
-          meta?.subscriber_count ??
-          meta?.viewCount ??
-          ""
-        ),
+        subscriberCount: (function() {
+          const s = getText(
+            c4Header?.subscriberCount ??
+            header?.subscriberCount ??
+            header?.subscriber_count ??
+            meta?.subscriber_count ??
+            meta?.viewCount ??
+            ""
+          );
+          return s || "—";
+        })(),
         videoCount: getText(c4Header?.videosCount),
         isVerified: header?.badges?.some((b: any) =>
           getText(b.tooltip).toLowerCase().includes("verified")
