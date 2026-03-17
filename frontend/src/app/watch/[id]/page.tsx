@@ -472,11 +472,17 @@ export default function WatchPage() {
                 <div className="flex items-center justify-between gap-4 flex-wrap p-4 pb-3">
                   <Link href={`/channel/${video.channelId}`} className="flex items-center gap-3 group">
                     <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
-                      {video.channelThumbnail ? (
-                        <img src={video.channelThumbnail.url} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <User className="h-5 w-5 text-muted-foreground" />
-                      )}
+                      {(() => {
+                        // Support multiple shapes: { url } object or string URL; fallback to video thumbnail
+                        const thumb: string | undefined =
+                          (video.channelThumbnail as any)?.url ??
+                          (typeof (video.channelThumbnail as any) === "string" ? (video.channelThumbnail as any) : undefined) ??
+                          video.thumbnails?.[0]?.url;
+                        if (thumb) {
+                          return <img src={thumb} alt="" className="h-full w-full object-cover" />;
+                        }
+                        return <User className="h-5 w-5 text-muted-foreground" />;
+                      })()}
                     </div>
                     <span className="font-semibold group-hover:text-primary transition-colors">
                       {video.channelName}
