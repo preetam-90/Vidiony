@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useVideo } from "@/hooks/useYoutube";
+import { useVideo, useChannel } from "@/hooks/useYoutube";
 import { useWatchHistory } from "@/store/watch-history";
 import { useAuth } from "@/contexts/auth-context";
 import { api } from "@/lib/api";
@@ -51,6 +51,8 @@ export default function WatchPage() {
   const params = useParams();
   const videoId = params.id as string;
   const { data: video, isLoading, error } = useVideo(videoId);
+  // Fetch channel info (subscriber count etc.) for display under the player
+  const { data: channelInfo } = useChannel(video?.channelId ?? "");
   const addToHistory = useWatchHistory((s) => s.addToHistory);
   const { isAuthenticated, user } = useAuth();
   const queryClient = useQueryClient();
@@ -488,6 +490,10 @@ export default function WatchPage() {
                       {video.channelName}
                     </span>
                   </Link>
+                    {channelInfo?.subscriberCount && (
+                      <div className="text-sm text-muted-foreground">{channelInfo.subscriberCount} subscribers</div>
+                    )}
+
 
                   <Button
                     variant={subscribed ? "outline" : "default"}
