@@ -1,224 +1,247 @@
-# Vidion
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║                              V I D I O N Y                                   ║
+║                     Next-Gen Video Streaming Platform                       ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
 
-A modern video streaming platform built with Next.js, offering a rich set of features for video content consumption and management.
+<div align="center">
 
-🌐 **Live Website**: [https://vidion.vercel.app/](https://vidion.vercel.app/)
+![Vidiony](./public/logo.png)
 
+# 🚀 Vidiony
 
-## Description
+### A next-generation video streaming platform built for the future
 
-Vidion is a comprehensive educational video streaming platform that provides users with a seamless experience for watching programming tutorials, algorithm explanations, and technical content. The platform includes extensive coverage of programming concepts, data structures, algorithms, and computer science fundamentals.
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
+[![License](https://img.shields.io/badge/License-Proprietary-7C3AED?style=for-the-badge)](./LICENSE)
 
-## Features
+**Live Website**: [vidion.vercel.app](https://vidion.vercel.app)
 
-- 🎬 Video streaming with support for multiple content types
-- 🔍 Advanced search functionality
-- 📱 Responsive design for all devices
-- 🎨 Modern UI with dark/light theme support
-- 📊 User dashboard with viewing history
-- ⭐ Favorites and watch later functionality
-- 🎯 Comprehensive programming tutorials
-- 🔄 Offline mode support
-- 📈 Trending content section
-- 🏷️ Category-based content organization
+*Modern • Fast • Beautiful*
 
-## Content Categories
+</div>
 
-- 💻 Programming Basics
-- 📊 Flowcharts & Algorithms
-- 🔢 Number Systems
-- 📝 Programming Patterns
-- 🧮 Math Problems
-- 🔍 Complexity Analysis
-- 📚 Data Structures
-  - Arrays
-  - Linked Lists
-  - Stacks
-  - Queues
-  - Trees
-- 🎯 Algorithm Topics
-  - Sorting Algorithms
-  - Searching Algorithms
-  - String Algorithms
-  - Matrix Algorithms
-- 🔧 Advanced Topics
-  - Bit Manipulation
-  - Pointers
-  - Recursion
-  - C++ Concepts
+---
 
-## Preview
+## ✨ Features
 
-Here are some screenshots showcasing the main features of Vidion:
+| Core Features | User Experience | Content & Discovery |
+|:-------------|:----------------|:--------------------|
+| 🎬 High-quality video streaming | 🎨 Dark/Light theme support | 📈 Trending content |
+| 🔍 Intelligent search | 📱 Fully responsive design | 🏷️ Category organization |
+| ⏩ Smooth playback controls | ⚡ Blazing fast performance | 🎯 Curated tutorials |
+| 📺 Multiple content types | ✨ Smooth animations | 🔥 Hot & trending |
+| 💾 Watch history tracking | 🎯 Intuitive navigation | 📊 View analytics |
 
-### Home Page
-![Home Page](./public/previews/home.png)
-*The main landing page with featured content and navigation*
-
-### Explore Section
-![Explore Section](./public/previews/explore.png)
-*Discover new content and trending videos*
-
-### Movies Section
-![Movies Section](./public/previews/movies.png)
-*Browse and watch movies with detailed information*
-
-### Music Section
-![Music Section](./public/previews/music.png)
-*Enjoy music videos and playlists*
-
-### Gaming Content
-![Gaming Section](./public/previews/gaming.png)
-*Dedicated section for gaming-related content*
-
-### History & Trending
-![History and Trending](./public/previews/history.png)
-*Track your viewing history and discover trending content*
-
-### TMDB Movies Integration
-![TMDB Movies](./public/previews/tmdb%20movies.png)
-*Seamless integration with TMDB for movie information*
-
-## Tech Stack
-
-### Frontend
-- Next.js 15.3.1
-- React 19.1.0
-- TypeScript
-- Tailwind CSS
-- Radix UI Components
-- Framer Motion
-- Zustand (State Management)
-- React Hook Form
-- Zod (Validation)
-
-### Backend
-- Next.js API Routes
-- Google APIs Integration
-
-### Development Tools
-- TypeScript
-- PostCSS
-- Sharp (Image Optimization)
-- Vercel Analytics & Speed Insights
-
-## Project Structure
+### Content Categories
 
 ```
-├── app/                    # Main application directory
-│   ├── api/               # API routes
-│   ├── components/        # Reusable components
-│   ├── contexts/          # React contexts
-│   ├── hooks/             # Custom React hooks
-│   ├── lib/               # Utility functions
-│   ├── movies/            # Movie-related pages
-│   ├── shorts/            # Shorts content pages
-│   └── ...                # Other feature directories
-├── components/            # Shared components
-├── public/                # Static assets
-├── styles/                # Global styles
-└── types/                 # TypeScript type definitions
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  💻 Programming      📊 Algorithms      📝 Patterns      🔢 Number Systems  │
+│  🧮 Math Problems   🔍 Complexity      📚 Data Structures (Arrays,         │
+│     Linked Lists, Stacks, Queues, Trees, Graphs)                          │
+│  🎯 Advanced Topics (Sorting, Searching, String & Matrix Algorithms,     │
+│     Bit Manipulation, Pointers, Recursion, C++)                         │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Installation
+---
 
-1. Clone the repository:
+## 🛠️ Tech Stack
+
+<div align="center">
+
+| Layer | Technologies |
+|:------|:-------------|
+| **Framework** | Next.js 16.1.6 • React 19.1.0 |
+| **Language** | TypeScript 5 |
+| **Styling** | Tailwind CSS 3.4 • CSS Modules |
+| **UI Components** | Radix UI • Lucide Icons |
+| **Animation** | Framer Motion 12.7.1 |
+| **State Management** | Zustand 5.0.3 |
+| **Forms & Validation** | React Hook Form • Zod 3.24 |
+| **Database** | Neon (PostgreSQL) • Drizzle ORM |
+| **APIs** | YouTube Data API v3 • TMDB |
+| **Deployment** | Vercel • Edge Runtime |
+
+</div>
+
+---
+
+## 📁 Project Structure
+
+```
+Vidiony/
+├── app/                    # Next.js App Router
+│   ├── api/               # API Routes
+│   ├── (auth)/            # Authentication pages
+│   ├── (main)/            # Main content pages
+│   ├── movies/            # Movie streaming
+│   ├── shorts/            # Short-form videos
+│   └── ...
+├── components/            # Reusable UI components
+│   ├── ui/               # Base components
+│   └── ...               # Feature components
+├── contexts/             # React contexts
+├── hooks/                # Custom hooks
+├── lib/                  # Utilities & helpers
+├── public/               # Static assets
+│   ├── previews/         # Screenshots
+│   └── icons/           # PWA icons
+├── styles/               # Global styles
+├── types/                # TypeScript definitions
+└── scripts/              # Build & utility scripts
+```
+
+---
+
+## 🚦 Getting Started
+
+### Prerequisites
+
+| Requirement | Version |
+|:------------|:--------|
+| Node.js | ≥ 20.0.0 |
+| Bun | ≥ 1.0.0 (recommended) |
+| pnpm | ≥ 8.0.0 (alternative) |
+
+### Installation
+
 ```bash
-git clone https://github.com/Preetam8873/vidio-v1.0.git
-cd vidion
-```
+# Clone the repository
+git clone https://github.com/preetam-90/Vidiony.git
+cd Vidiony
 
-2. Install dependencies:
-```bash
-pnpm install
-```
-
-3. Set up environment variables:
-Create a `.env.local` file with the following variables:
-```
-NEXT_PUBLIC_YOUTUBE_API_KEYS=your_youtube_api_keys_separated_by_commas
-```
-
-For detailed information on setting up and managing YouTube API keys, please refer to [YOUTUBE_API_GUIDE.md](./YOUTUBE_API_GUIDE.md).
-
-4. Run the development server:
-```bash
-pnpm dev
-```
-
-### Using Bun (optional)
-
-If you prefer to use Bun as the project runtime, Bun is supported and configured in `package.json`.
-
-- Install Bun (follow official installer):
-```bash
-curl -fsSL https://bun.sh/install | bash
-# then restart your shell or follow the installer output
-```
-
-- Install dependencies with Bun (this generates `bun.lockb`):
-```bash
+# Install dependencies (Bun - recommended)
 bun install
+
+# Or using pnpm
+pnpm install
+
+# Or using npm
+npm install
 ```
 
-- Common Bun commands (equivalents are configured in `package.json`):
+### Environment Setup
+
+Create a `.env.local` file in the root directory:
+
+```env
+# Required
+NEXT_PUBLIC_YOUTUBE_API_KEYS=your_api_key_1,your_api_key_2
+
+# Optional - for additional features
+TMDB_API_KEY=your_tmdb_api_key
+DATABASE_URL=your_neon_database_url
+```
+
+> 📖 For detailed API setup instructions, see [YOUTUBE_API_GUIDE.md](./YOUTUBE_API_GUIDE.md)
+
+### Development
+
 ```bash
-# Start the development runner (uses run-dev.js under Bun)
+# Start development server (Bun)
 bun run dev
 
-# Build with Next via bunx
-bunx next build
+# Or with pnpm
+pnpm dev
 
-# Start production
-bunx next start
-
-# Run lint
-bunx next lint
+# Open in browser
+# http://localhost:3000
 ```
 
-Note: `bunx` executes binaries from the project like `next` using Bun's runner. Using Bun will create `bun.lockb` in the repository; commit it if you want reproducible installs.
+### Build & Deploy
 
-## Usage
+```bash
+# Production build
+bun run build
 
-1. Start the development server using `pnpm dev`
-2. Open [http://localhost:3000](http://localhost:3000) in your browser
-3. Browse and watch educational programming content
+# Start production server
+bun run start
 
-## Environment Variables
+# Lint code
+bun run lint
+```
 
-Required environment variables:
-- `NEXT_PUBLIC_YOUTUBE_API_KEYS`: Comma-separated list of YouTube Data API v3 keys
+---
 
-## Utility Scripts
+## 🎯 Available Scripts
 
-- `node check-api-keys.js`: Check the validity of your YouTube API keys
-- `node clean-api-keys.js`: Clean up invalid or quota-exceeded YouTube API keys
+| Command | Description |
+|:--------|:-------------|
+| `bun run dev` | Start development server |
+| `bun run build` | Build for production |
+| `bun run start` | Start production server |
+| `bun run lint` | Run ESLint |
+| `bun run generate-pwa-assets` | Generate PWA icons |
 
-## Development
+### Utility Scripts
 
-- `pnpm dev`: Start development server (using pnpm/node)
-- `pnpm build`: Build for production
-- `pnpm start`: Start production server
-- `pnpm lint`: Run linting
+```bash
+# Check API key validity
+node check-api-keys.js
 
-If using Bun, the following run targets are available (see the `scripts` section in `package.json`):
+# Clean invalid/quota-exceeded keys
+node clean-api-keys.js
+```
 
-- `bun run dev` — Start the development runner (`run-dev.js`) under Bun
-- `bunx next build` — Build the Next.js app using Bun's `bunx`
-- `bunx next start` — Start the production server under Bun
+---
 
-## License
+## 📸 Preview
 
-This project is private and proprietary.
+| Home Page | Explore | Movies |
+|:----------|:--------|:-------|
+| ![Home](./public/previews/home.png) | ![Explore](./public/previews/explore.png) | ![Movies](./public/previews/movies.png) |
 
-## Performance Optimizations
+| Music | Gaming | History |
+|:------|:-------|:--------|
+| ![Music](./public/previews/music.png) | ![Gaming](./public/previews/gaming.png) | ![History](./public/previews/history.png) |
 
-The project includes several performance optimizations:
-- Static page generation
-- Image optimization
-- HTTP/2 Push
-- Granular code splitting
-- Font optimization
-- Modern JavaScript features
-- Tree shaking
-- Module concatenation 
+---
+
+## 🔧 Performance Optimizations
+
+- ⚡ Edge Runtime support
+- 🖼️ Image optimization with Sharp
+- 📦 Granular code splitting
+- 🎨 Font optimization
+- 🌳 Tree shaking
+- 📑 Route prefetching
+- 💾 Static generation where applicable
+- 📊 Vercel Analytics & Speed Insights
+
+---
+
+## 📄 License
+
+This project is private and proprietary. All rights reserved.
+
+---
+
+## 🤝 Connect
+
+<div align="center">
+
+[![GitHub](https://img.shields.io/badge/GitHub-Preetam--90-black?style=for-the-badge&logo=github)](https://github.com/preetam-90)
+[![Vercel](https://img.shields.io/badge/Deployed-Vercel-000?style=for-the-badge&logo=vercel)](https://vercel.com)
+
+*Built with ❤️ using Next.js*
+
+---
+
+**⭐ Star this repo if you find it useful!**
+
+</div>
+
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                              Built with                                     ║
+║     ⚡ Next.js    🦄 React    🎨 Tailwind    🔵 TypeScript    💚 Bun        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
