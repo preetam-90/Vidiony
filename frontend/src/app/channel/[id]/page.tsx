@@ -1,8 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useState, useEffect, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useInView } from "react-intersection-observer";
 import { useChannel } from "@/hooks/useYoutube";
@@ -12,57 +11,32 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { useSidebar } from "@/contexts/sidebar-context";
 import { cn } from "@/lib/utils";
 import { ChannelHero } from "@/components/channel/ChannelHero";
-import { ChannelNavTabs, type ChannelTab } from "@/components/channel/ChannelNavTabs";
-import { YTVideoCardSkeleton } from "@/components/video/YTVideoCard";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, Play, ListVideo } from "lucide-react";
+import { ChannelNavTabs, getVisibleChannelTabs, type ChannelTab } from "@/components/channel/ChannelNavTabs";
+import { ChannelVideoCard, ChannelVideoCardSkeleton } from "@/components/channel/ChannelVideoCard";
+import { ChannelShortsCard } from "@/components/channel/ShortsCard";
+import { ChannelPlaylistCard } from "@/components/channel/PlaylistCard";
+import { ChannelPostCard } from "@/components/channel/ChannelPostCard";
+import { ChannelAbout } from "@/components/channel/ChannelAbout";
+import { ChannelPageSkeleton } from "@/components/channel/ChannelPageSkeleton";
+import { Play, ListVideo, Film, MessageSquare, Podcast } from "lucide-react";
 
-const ChannelVideoCard = ({ item }: { item: ChannelVideoItem }) => (
-  <Link href={`/watch/${item.id}`} className="group block">
-    <div className="rounded-xl overflow-hidden bg-muted hover:bg-muted/80 transition-colors">
-      <div className="relative aspect-video bg-[#1a1a1a]">
-        <img
-          src={item.thumbnail}
-          alt={item.title}
-          className="h-full w-full object-cover group-hover:brightness-75 transition-all"
-        />
-        {item.duration && (
-          <div className="absolute bottom-2 right-2 rounded bg-black/80 px-1.5 py-0.5 text-xs font-medium text-white">
-            {item.duration}
-          </div>
-        )}
-      </div>
-      <div className="p-3">
-        <h3 className="line-clamp-2 font-semibold text-sm group-hover:text-white transition-colors">
-          {item.title}
-        </h3>
-        {item.viewCount && (
-          <p className="text-xs text-muted-foreground mt-1">{item.viewCount} views</p>
-        )}
-        {item.publishedAt && (
-          <p className="text-xs text-muted-foreground">{item.publishedAt}</p>
-        )}
+/** Horizontal scroll section for YouTube-style "For you" rows */
+function HorizontalScrollSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-8">
+      <h2 className="text-lg font-semibold mb-4">{title}</h2>
+      <div className="flex overflow-x-auto gap-3 pb-2" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+        {children}
       </div>
     </div>
-  </Link>
-);
-
-const PlaylistCard = ({ item }: { item: ChannelVideoItem }) => (
-  <div className="rounded-xl overflow-hidden bg-card p-4 hover:bg-card/90 transition-colors">
-    <div className="relative aspect-video mb-3 bg-[#1a1a1a] rounded-md overflow-hidden">
-      <img
-        src={item.thumbnail}
-        alt={item.title}
-        className="h-full w-full object-cover"
-      />
-    </div>
-    <h4 className="font-semibold line-clamp-2">{item.title}</h4>
-    <p className="text-sm text-muted-foreground mt-1">
-      {item.videoCount ?? 0} video{item.videoCount !== 1 ? "s" : ""}
-    </p>
-  </div>
-);
+  );
+}
 
 export default function ChannelPage() {
   const { isCollapsed } = useSidebar();
@@ -72,8 +46,9 @@ export default function ChannelPage() {
   const channelId = params.id as string;
   const { data: channel, isLoading, error } = useChannel(channelId);
   const [activeTab, setActiveTab] = useState<ChannelTab>("home");
+  const visibleTabs = useMemo(() => getVisibleChannelTabs(channel?.tabs), [channel?.tabs]);
 
-  const paginationTabs = ["home", "videos", "shorts", "live", "playlists"];
+  const paginationTabs: ChannelTab[] = ["home", "videos", "shorts", "live", "playlists", "podcasts", "posts"];
   const shouldFetchVideos = paginationTabs.includes(activeTab);
 
   const {
@@ -85,10 +60,10 @@ export default function ChannelPage() {
   } = useInfiniteQuery({
     queryKey: ["channel-videos", channelId, activeTab],
     queryFn: ({ pageParam }) => {
-      const tabToFetch = activeTab === "home" ? "videos" : (activeTab as "videos" | "shorts" | "live" | "playlists");
+      const tabToFetch = activeTab === "home" ? "videos" : activeTab;
       return api.getChannelVideos(
         channelId,
-        tabToFetch,
+        tabToFetch as "videos" | "shorts" | "live" | "playlists" | "podcasts" | "posts",
         pageParam as string | undefined
       );
     },
@@ -105,254 +80,376 @@ export default function ChannelPage() {
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  useEffect(() => {
+    if (visibleTabs.length === 0) return;
+    if (!visibleTabs.includes(activeTab)) {
+      setActiveTab(visibleTabs[0]);
+    }
+  }, [activeTab, visibleTabs]);
+
   const allVideos = data?.pages.flatMap((page) => page.items) || [];
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0f0f0f]">
+        <Sidebar />
+        <Navbar />
+        <main className={cn("mx-auto max-w-[1280px] px-4 py-6", sidebarPadding)}>
+          <ChannelPageSkeleton />
+        </main>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#0f0f0f]">
+        <Sidebar />
+        <Navbar />
+        <main className={cn("mx-auto max-w-[1280px] px-4 py-6", sidebarPadding)}>
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="rounded-xl bg-white/5 border border-white/10 p-8 max-w-md">
+              <p className="text-lg font-semibold text-white">Unable to load channel</p>
+              <p className="text-sm text-[#aaa] mt-2">This channel may not exist or is unavailable.</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!channel) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-[#0f0f0f]">
       <Sidebar />
       <Navbar />
 
-      <main className={cn("mx-auto max-w-6xl px-4 py-6", sidebarPadding)}>
-        <Button variant="ghost" className="mb-4 gap-2" onClick={() => window.history.back()}>
-          <ChevronLeft className="h-4 w-4" /> Back
-        </Button>
+      <main className={cn("mx-auto max-w-[1280px] px-4 py-6", sidebarPadding)}>
+        {/* ── Channel header (banner + info) ─────────────────── */}
+        <ChannelHero channel={channel} channelId={channelId} />
 
-        {isLoading && (
-          <div className="space-y-4">
-            <Skeleton className="h-48 w-full rounded-xl" />
-            <div className="flex items-center gap-4">
-              <Skeleton className="h-20 w-20 rounded-full" />
-              <div className="space-y-2">
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-32" />
-              </div>
-            </div>
-          </div>
-        )}
+        {/* ── Tab navigation ──────────────────────────────────── */}
+        <ChannelNavTabs activeTab={activeTab} onTabChange={setActiveTab} availableTabs={channel.tabs} />
 
-        {error && (
-          <div className="rounded-xl bg-destructive/10 border border-destructive/30 p-6 text-center">
-            <p className="text-destructive">Failed to load channel info.</p>
-          </div>
-        )}
+        {/* ── Tab content ─────────────────────────────────────── */}
+        <div className="mt-6">
 
-        {channel && (
-          <div className="space-y-6">
-            <ChannelHero channel={channel} channelId={channelId} />
+          {/* ═══ HOME TAB ═══ */}
+          {activeTab === "home" && (
+            <div>
+              {videosLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  <ChannelVideoCardSkeleton count={8} />
+                </div>
+              ) : allVideos.length > 0 ? (
+                <>
+                  {/* Featured section — YouTube style: horizontal row */}
+                  <HorizontalScrollSection title="Featured">
+                    {allVideos.slice(0, 6).map((v) => (
+                      <div key={v.id} className="flex-shrink-0 w-[280px] sm:w-[320px]">
+                        <ChannelVideoCard item={v} />
+                      </div>
+                    ))}
+                  </HorizontalScrollSection>
 
-            <ChannelNavTabs activeTab={activeTab} onTabChange={setActiveTab} />
-
-            {/* Home Tab */}
-            {activeTab === "home" && (
-              <div className="space-y-6">
-                {videosLoading ? (
-                  <div className="space-y-6">
-                    <div>
-                      <h2 className="text-lg font-semibold mb-3">Featured</h2>
-                      <Skeleton className="h-64 w-full rounded-xl" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold mb-3">Latest uploads</h3>
-                      <YTVideoCardSkeleton count={6} />
+                  {/* Latest uploads — grid */}
+                  <div className="mb-8">
+                    <h2 className="text-lg font-semibold mb-4">Latest uploads</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                      {allVideos.slice(0, 8).map((v) => (
+                        <ChannelVideoCard key={v.id} item={v} />
+                      ))}
                     </div>
                   </div>
-                ) : allVideos.length > 0 ? (
-                  <>
-                    <div>
-                      <h2 className="text-lg font-semibold mb-3">Featured</h2>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <ChannelVideoCard item={allVideos[0]} />
-                        <div className="grid grid-cols-1 gap-4">
-                          {allVideos.slice(1, 4).map((v) => (
-                            <ChannelVideoCard key={v.id} item={v} />
-                          ))}
+
+                  {/* More videos — horizontal scroll */}
+                  <HorizontalScrollSection title="More videos">
+                    {allVideos.slice(4, 14).map((v) => (
+                      <div key={`more-${v.id}`} className="flex-shrink-0 w-[260px] sm:w-[300px]">
+                        <ChannelVideoCard item={v} />
+                      </div>
+                    ))}
+                  </HorizontalScrollSection>
+
+                  {/* Infinite scroll trigger */}
+                  {isFetchingNextPage && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                      <ChannelVideoCardSkeleton count={4} />
+                    </div>
+                  )}
+                  <div ref={ref} className="w-full py-2 min-h-[60px]" />
+                </>
+              ) : (
+                <EmptyState icon={<Play className="h-12 w-12" />} message="No videos yet" />
+              )}
+            </div>
+          )}
+
+          {/* ═══ VIDEOS TAB ═══ */}
+          {activeTab === "videos" && (
+            <div>
+              {videosLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                  <ChannelVideoCardSkeleton count={8} />
+                </div>
+              ) : allVideos.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                    {allVideos.map((v) => (
+                      <ChannelVideoCard key={v.id} item={v} />
+                    ))}
+                  </div>
+
+                  {isFetchingNextPage && (
+                    <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                      <ChannelVideoCardSkeleton count={4} />
+                    </div>
+                  )}
+
+                  <div ref={ref} className="w-full py-2 min-h-[60px]" />
+                </>
+              ) : (
+                <EmptyState icon={<Play className="h-12 w-12" />} message="No videos found" />
+              )}
+            </div>
+          )}
+
+          {/* ═══ SHORTS TAB ═══ */}
+          {activeTab === "shorts" && (
+            <div>
+              {videosLoading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <div className="aspect-[9/16] rounded-xl bg-[#1a1a1a] animate-pulse" />
+                      <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
+                      <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              ) : allVideos.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    {allVideos.map((v) => (
+                      <ChannelShortsCard key={v.id} item={v} />
+                    ))}
+                  </div>
+
+                  {isFetchingNextPage && (
+                    <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="space-y-2">
+                          <div className="aspect-[9/16] rounded-xl bg-[#1a1a1a] animate-pulse" />
+                          <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
+                          <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div ref={ref} className="w-full py-2 min-h-[60px]" />
+                </>
+              ) : (
+                <EmptyState icon={<Film className="h-12 w-12" />} message="No shorts found" />
+              )}
+            </div>
+          )}
+
+          {/* ═══ LIVE TAB ═══ */}
+          {activeTab === "live" && (
+            <div>
+              {videosLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                  <ChannelVideoCardSkeleton count={8} />
+                </div>
+              ) : allVideos.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                    {allVideos.map((v) => (
+                      <ChannelVideoCard key={v.id} item={v} />
+                    ))}
+                  </div>
+
+                  {isFetchingNextPage && (
+                    <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                      <ChannelVideoCardSkeleton count={4} />
+                    </div>
+                  )}
+
+                  <div ref={ref} className="w-full py-2 min-h-[60px]" />
+                </>
+              ) : (
+                <EmptyState icon={<Play className="h-12 w-12" />} message="No live streams found" />
+              )}
+            </div>
+          )}
+
+          {/* ═══ PLAYLISTS TAB ═══ */}
+          {activeTab === "playlists" && (
+            <div>
+              {videosLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <div className="aspect-video rounded-xl bg-[#1a1a1a] animate-pulse" />
+                      <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
+                      <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              ) : allVideos.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                    {allVideos.map((p) => (
+                      <ChannelPlaylistCard key={p.id} item={p} />
+                    ))}
+                  </div>
+
+                  {isFetchingNextPage && (
+                    <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="space-y-2">
+                          <div className="aspect-video rounded-xl bg-[#1a1a1a] animate-pulse" />
+                          <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
+                          <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div ref={ref} className="w-full py-2 min-h-[60px]" />
+                </>
+              ) : (
+                <EmptyState icon={<ListVideo className="h-12 w-12" />} message="No playlists found" />
+              )}
+            </div>
+          )}
+
+          {activeTab === "podcasts" && (
+            <div>
+              {videosLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <div className="aspect-video rounded-xl bg-[#1a1a1a] animate-pulse" />
+                      <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
+                      <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              ) : allVideos.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                    {allVideos.map((podcast) => (
+                      <ChannelPlaylistCard key={podcast.id} item={podcast} />
+                    ))}
+                  </div>
+
+                  {isFetchingNextPage && (
+                    <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="space-y-2">
+                          <div className="aspect-video rounded-xl bg-[#1a1a1a] animate-pulse" />
+                          <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
+                          <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div ref={ref} className="w-full py-2 min-h-[60px]" />
+                </>
+              ) : (
+                <EmptyState icon={<Podcast className="h-12 w-12" />} message="No podcasts found" />
+              )}
+            </div>
+          )}
+
+          {/* ═══ POSTS TAB ═══ */}
+          {activeTab === "posts" && (
+            <div>
+              {videosLoading ? (
+                <div className="space-y-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                      <div className="flex gap-3">
+                        <div className="h-10 w-10 rounded-full bg-[#1a1a1a] animate-pulse" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 w-32 rounded bg-[#1a1a1a] animate-pulse" />
+                          <div className="h-4 w-full rounded bg-[#1a1a1a] animate-pulse" />
+                          <div className="h-4 w-[85%] rounded bg-[#1a1a1a] animate-pulse" />
                         </div>
                       </div>
                     </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold mb-3">Latest uploads</h3>
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {allVideos.map((v) => (
-                          <ChannelVideoCard key={v.id} item={v} />
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="py-16 text-center text-muted-foreground">
-                    <Play className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p>No videos found for this channel</p>
-                  </div>
-                )}
-
-                {isFetchingNextPage && (
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    <YTVideoCardSkeleton count={4} />
-                  </div>
-                )}
-
-                <div key={`scroll-trigger-${activeTab}`} ref={ref} className="w-full py-2 min-h-[60px]" />
-              </div>
-            )}
-
-            {/* Videos Tab */}
-            {activeTab === "videos" && (
-              <div>
-                {videosLoading ? (
-                  <YTVideoCardSkeleton count={8} />
-                ) : allVideos.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {allVideos.map((v) => (
-                        <ChannelVideoCard key={v.id} item={v} />
-                      ))}
-                    </div>
-
-                    {isFetchingNextPage && (
-                      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        <YTVideoCardSkeleton count={4} />
-                      </div>
-                    )}
-
-                    <div key={`scroll-trigger-${activeTab}`} ref={ref} className="w-full py-2 min-h-[60px]" />
-                  </>
-                ) : (
-                  <div className="py-16 text-center text-muted-foreground">
-                    <Play className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p>No videos for this channel</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Shorts Tab */}
-            {activeTab === "shorts" && (
-              <div>
-                {videosLoading ? (
-                  <YTVideoCardSkeleton count={8} />
-                ) : allVideos.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                      {allVideos.map((v) => (
-                        <ChannelVideoCard key={v.id} item={v} />
-                      ))}
-                    </div>
-
-                    {isFetchingNextPage && (
-                      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                        <YTVideoCardSkeleton count={6} />
-                      </div>
-                    )}
-
-                    <div key={`scroll-trigger-${activeTab}`} ref={ref} className="w-full py-2 min-h-[60px]" />
-                  </>
-                ) : (
-                  <div className="py-16 text-center text-muted-foreground">
-                    <Play className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p>No shorts for this channel</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Live Tab */}
-            {activeTab === "live" && (
-              <div>
-                {videosLoading ? (
-                  <YTVideoCardSkeleton count={8} />
-                ) : allVideos.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {allVideos.map((v) => (
-                        <ChannelVideoCard key={v.id} item={v} />
-                      ))}
-                    </div>
-
-                    {isFetchingNextPage && (
-                      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        <YTVideoCardSkeleton count={4} />
-                      </div>
-                    )}
-
-                    <div key={`scroll-trigger-${activeTab}`} ref={ref} className="w-full py-2 min-h-[60px]" />
-                  </>
-                ) : (
-                  <div className="py-16 text-center text-muted-foreground">
-                    <Play className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p>No live streams for this channel</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Playlists Tab */}
-            {activeTab === "playlists" && (
-              <div>
-                {videosLoading ? (
-                  <YTVideoCardSkeleton count={6} />
-                ) : allVideos.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {allVideos.map((p) => (
-                        <PlaylistCard key={p.id} item={p} />
-                      ))}
-                    </div>
-
-                    {isFetchingNextPage && (
-                      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <YTVideoCardSkeleton count={3} />
-                      </div>
-                    )}
-
-                    <div key={`scroll-trigger-${activeTab}`} ref={ref} className="w-full py-2 min-h-[60px]" />
-                  </>
-                ) : (
-                  <div className="py-16 text-center text-muted-foreground">
-                    <ListVideo className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p>No playlists found</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Posts Tab */}
-            {activeTab === "posts" && (
-              <div className="py-16 text-center text-muted-foreground">
-                <Play className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                <p>No posts yet</p>
-              </div>
-            )}
-
-            {/* About Tab */}
-            {activeTab === "about" && (
-              <div className="space-y-4">
-                <div className="rounded-xl bg-card p-6">
-                  <h3 className="text-lg font-semibold">About</h3>
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    {channel.description || "No description provided."}
-                  </p>
+                  ))}
                 </div>
+              ) : allVideos.length > 0 ? (
+                <>
+                  <div className="space-y-4">
+                    {allVideos.map((post, index) => (
+                      <ChannelPostCard
+                        key={`${post.id}-${post.publishedAt ?? "na"}-${index}`}
+                        item={post}
+                      />
+                    ))}
+                  </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="rounded-xl bg-card p-6">
-                    <h4 className="font-semibold">Subscribers</h4>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {channel.subscriberCount || "—"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-card p-6">
-                    <h4 className="font-semibold">Total videos</h4>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {channel.videoCount || "—"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+                  {isFetchingNextPage && (
+                    <div className="mt-4 space-y-4">
+                      {Array.from({ length: 2 }).map((_, i) => (
+                        <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                          <div className="flex gap-3">
+                            <div className="h-10 w-10 rounded-full bg-[#1a1a1a] animate-pulse" />
+                            <div className="flex-1 space-y-2">
+                              <div className="h-4 w-32 rounded bg-[#1a1a1a] animate-pulse" />
+                              <div className="h-4 w-full rounded bg-[#1a1a1a] animate-pulse" />
+                              <div className="h-4 w-[85%] rounded bg-[#1a1a1a] animate-pulse" />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div ref={ref} className="w-full py-2 min-h-[60px]" />
+                </>
+              ) : (
+                <EmptyState icon={<MessageSquare className="h-12 w-12" />} message="No posts yet" />
+              )}
+            </div>
+          )}
+
+          {/* ═══ ABOUT TAB ═══ */}
+          {activeTab === "about" && channel && (
+            <ChannelAbout
+              about={{
+                description: channel.description,
+                subscriberCount: channel.subscriberCount,
+                videoCount: channel.videoCount,
+                totalViewCount: "",
+                joinedDate: null,
+                links: channel.links ?? [],
+                country: null,
+              }}
+            />
+          )}
+        </div>
       </main>
+    </div>
+  );
+}
+
+/** Shared empty state component */
+function EmptyState({ icon, message }: { icon: React.ReactNode; message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center text-[#aaa]">
+      <div className="mb-4 opacity-30">{icon}</div>
+      <p className="text-sm">{message}</p>
     </div>
   );
 }

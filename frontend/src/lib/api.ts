@@ -190,7 +190,7 @@ export interface ChannelVideo {
 }
 
 export interface ChannelVideoItem {
-  type: "video" | "playlist";
+  type: "video" | "playlist" | "post";
   id: string;
   title: string;
   thumbnail: string;
@@ -198,6 +198,12 @@ export interface ChannelVideoItem {
   viewCount: string;
   publishedAt: string;
   videoCount: number | null;
+  content?: string;
+  authorName?: string;
+  authorAvatar?: string;
+  mediaImages?: string[];
+  likeCount?: number | null;
+  commentCount?: number | null;
 }
 
 export interface CommentData {
@@ -374,7 +380,7 @@ export const api = {
     ),
 
   getChannel: (id: string) =>
-    yt<{ channel: ChannelInfo }>(`/channel/${id}`),
+    v2<{ success: boolean; channel: ChannelInfo }>(`/channels/${id}`, { skipAuth: true }),
 
   getChannelPopular: (id: string) =>
     v2<{ success: boolean; channelId: string; items: ChannelVideo[] }>(
@@ -520,7 +526,7 @@ export const api = {
 
   getChannelVideos: (
     id: string,
-    tab: "videos" | "shorts" | "live" | "playlists" = "videos",
+    tab: "videos" | "shorts" | "live" | "playlists" | "podcasts" | "posts" = "videos",
     continuation?: string
   ) =>
     v2<{ success: boolean; channelId: string; tab: string; items: ChannelVideoItem[]; continuation: string | null }>(
