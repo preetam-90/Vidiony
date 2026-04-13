@@ -20,7 +20,7 @@ const ChannelIdSchema = z.object({
 });
 
 const ChannelVideosQuerySchema = z.object({
-  tab: z.enum(["videos", "shorts", "live", "playlists"]).default("videos"),
+  tab: z.enum(["videos", "shorts", "live", "playlists", "podcasts", "posts"]).default("videos"),
   sort: z.enum(["date", "popular"]).default("date"),
   continuation: z.string().optional(),
 });
@@ -35,6 +35,420 @@ function getText(val: unknown): string {
   if (Array.isArray(obj.runs)) return obj.runs.map((r: any) => r.text ?? "").join("");
   if (obj.accessibility?.accessibilityData?.label) return obj.accessibility.accessibilityData.label;
   return "";
+}
+
+function getChannelBannerCandidates(header: unknown): unknown[] {
+  const h = header as {
+    banner?: unknown;
+    mobile_banner?: unknown;
+    tv_banner?: unknown;
+    content?: { banner?: { image?: unknown; thumbnails?: unknown } };
+  } | undefined;
+
+  const candidates = [
+    (h?.banner as { thumbnails?: unknown } | undefined)?.thumbnails,
+    h?.banner,
+    (h?.mobile_banner as { thumbnails?: unknown } | undefined)?.thumbnails,
+    h?.mobile_banner,
+    (h?.tv_banner as { thumbnails?: unknown } | undefined)?.thumbnails,
+    h?.tv_banner,
+    h?.content?.banner?.image,
+    h?.content?.banner?.thumbnails,
+  ];
+
+  return candidates.find(Array.isArray) ?? [];
+}
+
+function getNestedValue(source: unknown, path: Array<string | number>): unknown {
+  return path.reduce<unknown>((current, key) => {
+    if (current == null) return undefined;
+    if (typeof key === "number") {
+      return Array.isArray(current) ? current[key] : undefined;
+    }
+    if (typeof current === "object") {
+      return (current as Record<string, unknown>)[key];
+    }
+    return undefined;
+  }, source);
+}
+
+function getArrayValue(source: unknown, paths: Array<Array<string | number>>): unknown[] {
+  for (const path of paths) {
+    const value = getNestedValue(source, path);
+    if (Array.isArray(value) && value.length > 0) {
+      return value;
+    }
+  }
+
+  return [];
+}
+
+function getThumbnailUrl(item: unknown): string {
+  const candidateArrays = [
+    getArrayValue(item, [["thumbnails"], ["thumbnail", "thumbnails"], ["images"], ["image", "sources"]]),
+    getArrayValue(item, [["attachment", "thumbnails"], ["attachment", "image", "sources"], ["content", "thumbnails"]]),
+  ];
+
+  for (const array of candidateArrays) {
+    const selected = [...array].reverse().find((entry) => {
+      const record = entry as Record<string, unknown>;
+      return typeof record?.url === "string" && record.url.length > 0;
+    });
+
+    if (selected) {
+      return (selected as { url: string }).url;
+    }
+  }
+
+  return "";
+}
+
+function collectImageUrls(source: unknown, paths: Array<Array<string | number>>): string[] {
+  const urls: string[] = [];
+  const seen = new Set<string>();
+
+  const toCanonicalImageKey = (url: string): string => {
+    try {
+      const parsed = new URL(url);
+      const file = parsed.pathname.split("/").pop() ?? parsed.pathname;
+      return `${parsed.hostname}/${file}`.toLowerCase();
+    } catch {
+      const withoutQuery = url.split("?")[0] ?? url;
+      const segments = withoutQuery.split("/");
+      const file = segments[segments.length - 1] ?? withoutQuery;
+      return file.toLowerCase();
+    }
+  };
+
+  for (const path of paths) {
+    const value = getNestedValue(source, path);
+    if (!Array.isArray(value)) continue;
+
+    for (const entry of value) {
+      const url = typeof (entry as { url?: unknown })?.url === "string"
+        ? ((entry as { url: string }).url ?? "").trim()
+        : "";
+      if (url) {
+        const canonical = toCanonicalImageKey(url);
+        if (!seen.has(canonical)) {
+          seen.add(canonical);
+          urls.push(url);
+        }
+      }
+    }
+  }
+
+  return urls;
+}
+
+function getAuthorAvatarUrl(item: unknown): string {
+  const avatarUrls = collectImageUrls(item, [
+    ["author", "thumbnails"],
+    ["author", "avatar", "thumbnails"],
+    ["authorThumbnail", "thumbnails"],
+    ["author_thumbnail", "thumbnails"],
+  ]);
+
+  return avatarUrls[0] ?? "";
+}
+
+function getPostMediaImages(item: unknown): string[] {
+  return collectImageUrls(item, [
+    ["attachment", "image", "sources"],
+    ["attachment", "image", "thumbnails"],
+    ["attachment", "thumbnails"],
+    ["backstageAttachment", "image", "sources"],
+    ["backstageAttachment", "image", "thumbnails"],
+    ["backstageAttachment", "thumbnails"],
+    ["content", "thumbnails"],
+    ["images"],
+    ["media", "thumbnails"],
+    ["thumbnails"],
+  ]);
+}
+
+function unwrapPostNode(item: unknown): Record<string, unknown> {
+  let current = item as Record<string, unknown> | undefined;
+  let depth = 0;
+
+  while (current && typeof current === "object" && !Array.isArray(current) && depth < 5) {
+    const next =
+      (current.backstagePostRenderer as Record<string, unknown> | undefined) ??
+      (current.sharedBackstagePostRenderer as Record<string, unknown> | undefined) ??
+      (current.postRenderer as Record<string, unknown> | undefined) ??
+      (current.backstagePostThreadRenderer as Record<string, unknown> | undefined) ??
+      (current.post as Record<string, unknown> | undefined);
+
+    if (!next || next === current) break;
+    current = next;
+    depth += 1;
+  }
+
+  return current && typeof current === "object" && !Array.isArray(current) ? current : {};
+}
+
+function getPostContent(item: unknown): string {
+  return getText(
+    getNestedValue(item, ["contentText"]) ??
+    getNestedValue(item, ["content_text"]) ??
+    getNestedValue(item, ["content", "content"]) ??
+    getNestedValue(item, ["content"]) ??
+    getNestedValue(item, ["text"]) ??
+    getNestedValue(item, ["body"]) ??
+    getNestedValue(item, ["description"]) ??
+    getNestedValue(item, ["title"]) ??
+    getNestedValue(item, ["header", "title"]) ??
+    getNestedValue(item, ["snippet", "text"])
+  );
+}
+
+function getPostAuthorName(item: unknown): string {
+  return getText(
+    getNestedValue(item, ["author", "name"]) ??
+    getNestedValue(item, ["author"]) ??
+    getNestedValue(item, ["authorText"]) ??
+    getNestedValue(item, ["ownerText"]) ??
+    getNestedValue(item, ["displayName"]) ??
+    getNestedValue(item, ["channel", "name"])
+  );
+}
+
+function getPostPublishedAt(item: unknown): string {
+  return getText(
+    getNestedValue(item, ["published"]) ??
+    getNestedValue(item, ["published_time_text"]) ??
+    getNestedValue(item, ["publishedText"]) ??
+    getNestedValue(item, ["publishedTimeText"]) ??
+    getNestedValue(item, ["timestampText"])
+  );
+}
+
+function getVideoId(item: unknown): string | null {
+  const obj = item as Record<string, unknown> | undefined;
+  if (!obj) return null;
+
+  const fromIdObject = obj.id as Record<string, unknown> | undefined;
+  const direct =
+    (typeof obj.id === "string" ? obj.id : undefined) ??
+    (typeof obj.videoId === "string" ? obj.videoId : undefined) ??
+    (typeof obj.video_id === "string" ? obj.video_id : undefined) ??
+    (typeof fromIdObject?.videoId === "string" ? fromIdObject.videoId : undefined) ??
+    (typeof fromIdObject?.video_id === "string" ? fromIdObject.video_id : undefined) ??
+    (typeof getNestedValue(obj, ["video", "id"]) === "string" ? (getNestedValue(obj, ["video", "id"]) as string) : undefined) ??
+    (typeof getNestedValue(obj, ["endpoint", "payload", "videoId"]) === "string" ? (getNestedValue(obj, ["endpoint", "payload", "videoId"]) as string) : undefined) ??
+    (typeof getNestedValue(obj, ["navigation_endpoint", "payload", "videoId"]) === "string" ? (getNestedValue(obj, ["navigation_endpoint", "payload", "videoId"]) as string) : undefined) ??
+    (typeof getNestedValue(obj, ["on_tap_endpoint", "payload", "videoId"]) === "string" ? (getNestedValue(obj, ["on_tap_endpoint", "payload", "videoId"]) as string) : undefined) ??
+    (typeof getNestedValue(obj, ["watch_endpoint", "video_id"]) === "string" ? (getNestedValue(obj, ["watch_endpoint", "video_id"]) as string) : undefined) ??
+    (typeof getNestedValue(obj, ["reel_watch_endpoint", "videoId"]) === "string" ? (getNestedValue(obj, ["reel_watch_endpoint", "videoId"]) as string) : undefined) ??
+    (typeof obj.entity_id === "string" ? obj.entity_id : undefined) ??
+    (typeof obj.entityId === "string" ? obj.entityId : undefined);
+
+  return direct ?? null;
+}
+
+function getPlaylistId(item: unknown): string | null {
+  const obj = item as Record<string, unknown> | undefined;
+  if (!obj) return null;
+
+  const fromIdObject = obj.id as Record<string, unknown> | undefined;
+  const rawId =
+    (typeof obj.id === "string" ? obj.id : undefined) ??
+    (typeof obj.playlist_id === "string" ? obj.playlist_id : undefined) ??
+    (typeof obj.playlistId === "string" ? obj.playlistId : undefined) ??
+    (typeof obj.content_id === "string" ? obj.content_id : undefined) ??
+    (typeof fromIdObject?.playlistId === "string" ? fromIdObject.playlistId : undefined) ??
+    (typeof getNestedValue(obj, ["endpoint", "payload", "playlistId"]) === "string" ? (getNestedValue(obj, ["endpoint", "payload", "playlistId"]) as string) : undefined) ??
+    (typeof getNestedValue(obj, ["navigation_endpoint", "payload", "playlistId"]) === "string" ? (getNestedValue(obj, ["navigation_endpoint", "payload", "playlistId"]) as string) : undefined) ??
+    (typeof getNestedValue(obj, ["endpoint", "payload", "browseId"]) === "string" ? (getNestedValue(obj, ["endpoint", "payload", "browseId"]) as string) : undefined) ??
+    (typeof getNestedValue(obj, ["navigation_endpoint", "payload", "browseId"]) === "string" ? (getNestedValue(obj, ["navigation_endpoint", "payload", "browseId"]) as string) : undefined);
+
+  if (!rawId) return null;
+  if (rawId.startsWith("VL") && rawId.length > 2) {
+    return rawId.slice(2);
+  }
+
+  return rawId;
+}
+
+function getPostId(item: unknown): string | null {
+  const obj = item as Record<string, unknown> | undefined;
+  if (!obj) return null;
+
+  const id =
+    (typeof obj.post_id === "string" ? obj.post_id : undefined) ??
+    (typeof obj.postId === "string" ? obj.postId : undefined) ??
+    (typeof obj.externalPostId === "string" ? obj.externalPostId : undefined) ??
+    (typeof getNestedValue(obj, ["postId"]) === "string" ? (getNestedValue(obj, ["postId"]) as string) : undefined) ??
+    (typeof getNestedValue(obj, ["backstagePostRenderer", "postId"]) === "string" ? (getNestedValue(obj, ["backstagePostRenderer", "postId"]) as string) : undefined) ??
+    (typeof getNestedValue(obj, ["sharedBackstagePostRenderer", "postId"]) === "string" ? (getNestedValue(obj, ["sharedBackstagePostRenderer", "postId"]) as string) : undefined) ??
+    (typeof getNestedValue(obj, ["backstagePostThreadRenderer", "post", "postId"]) === "string" ? (getNestedValue(obj, ["backstagePostThreadRenderer", "post", "postId"]) as string) : undefined);
+
+  return id ?? null;
+}
+
+function looksLikePostItem(item: unknown): boolean {
+  const hasPostIdentity = !!getPostId(item);
+  const text = getPostContent(item);
+
+  const hasPostSignals =
+    !!getPostPublishedAt(item) ||
+    !!getPostAuthorName(item) ||
+    getNestedValue(item, ["attachment"]) != null;
+
+  return hasPostIdentity || (text.length > 0 && hasPostSignals);
+}
+
+function isCandidateForTab(item: unknown, tab: string): boolean {
+  if (!item || typeof item !== "object") return false;
+
+  if (tab === "posts") {
+    const node = unwrapPostNode(item);
+    const typeHint = String((node as { type?: unknown })?.type ?? (item as { type?: unknown })?.type ?? "").toLowerCase();
+    const hasRenderer =
+      getNestedValue(item, ["backstagePostRenderer"]) != null ||
+      getNestedValue(item, ["sharedBackstagePostRenderer"]) != null ||
+      getNestedValue(item, ["postRenderer"]) != null;
+    return !!getPostId(node) || looksLikePostItem(node) || hasRenderer || typeHint.includes("post");
+  }
+
+  if (tab === "playlists" || tab === "podcasts") {
+    const contentType = getText(getNestedValue(item, ["content_type"]))
+      .toUpperCase()
+      .trim();
+    return !!getPlaylistId(item) || contentType === "PLAYLIST" || contentType === "PODCAST";
+  }
+
+  return !!getVideoId(item);
+}
+
+function collectDeepTabItems(source: unknown, tab: string): any[] {
+  const collected: any[] = [];
+  const visited = new WeakSet<object>();
+
+  const walk = (node: unknown) => {
+    if (!node || typeof node !== "object") return;
+
+    const asObj = node as object;
+    if (visited.has(asObj)) return;
+    visited.add(asObj);
+
+    if (Array.isArray(node)) {
+      for (const entry of node) walk(entry);
+      return;
+    }
+
+    if (isCandidateForTab(node, tab)) {
+      collected.push(node);
+    }
+
+    for (const value of Object.values(node as Record<string, unknown>)) {
+      if (value && typeof value === "object") walk(value);
+    }
+  };
+
+  walk(source);
+  return collected;
+}
+
+function toCount(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  const text = getText(value)
+    .replace(/,/g, "")
+    .replace(/likes?/gi, "")
+    .replace(/comments?/gi, "")
+    .replace(/replies?/gi, "")
+    .trim();
+  if (!text) return null;
+
+  const compact = text.match(/([\d.]+)\s*([kmb])/i);
+  if (compact) {
+    const amount = Number(compact[1]);
+    const unit = compact[2]?.toLowerCase();
+    if (!Number.isFinite(amount)) return null;
+    const multiplier = unit === "k" ? 1_000 : unit === "m" ? 1_000_000 : unit === "b" ? 1_000_000_000 : 1;
+    return Math.round(amount * multiplier);
+  }
+
+  const match = text.match(/\d+/);
+  if (!match) return null;
+
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getPostLikeCount(item: unknown): number | null {
+  return toCount(
+    getNestedValue(item, ["vote_count"]) ??
+    getNestedValue(item, ["like_count"]) ??
+    getNestedValue(item, ["likes"]) ??
+    getNestedValue(item, ["action_buttons", "like_button", "toggle_button", "default_text"]) ??
+    getNestedValue(item, ["action_buttons", "like_button", "toggle_button", "text"]) ??
+    getNestedValue(item, ["likeButton", "toggleButton", "defaultText"]) ??
+    getNestedValue(item, ["toolbar", "likeButton", "text"])
+  );
+}
+
+function getPostCommentCount(item: unknown): number | null {
+  return toCount(
+    getNestedValue(item, ["reply_count"]) ??
+    getNestedValue(item, ["comment_count"]) ??
+    getNestedValue(item, ["comments_count"]) ??
+    getNestedValue(item, ["action_buttons", "comment_button", "text"]) ??
+    getNestedValue(item, ["action_buttons", "reply_button", "text"]) ??
+    getNestedValue(item, ["commentButton", "text"]) ??
+    getNestedValue(item, ["replyButton", "text"]) ??
+    getNestedValue(item, ["toolbar", "commentButton", "text"])
+  );
+}
+
+function normalizeChannelTabLabel(tab: string): string {
+  const normalized = tab.trim().toLowerCase();
+
+  if (normalized === "featured") return "home";
+  if (normalized === "streams") return "live";
+  if (normalized === "community") return "posts";
+
+  return normalized;
+}
+
+function getNormalizedChannelTabs(tabs: unknown): string[] {
+  if (!Array.isArray(tabs)) return [];
+
+  return [...new Set(
+    tabs
+      .map((tab) => {
+        if (typeof tab === "string") return normalizeChannelTabLabel(tab);
+        return normalizeChannelTabLabel(getText((tab as { title?: unknown })?.title ?? tab));
+      })
+      .filter(Boolean)
+  )];
+}
+
+function getChannelTabsWithFallback(channel: unknown): string[] {
+  const ch = channel as {
+    tabs?: unknown;
+    has_videos?: boolean;
+    has_shorts?: boolean;
+    has_live_streams?: boolean;
+    has_playlists?: boolean;
+    has_podcasts?: boolean;
+    has_community?: boolean;
+  };
+
+  const tabs = new Set(getNormalizedChannelTabs(ch?.tabs));
+
+  tabs.add("home");
+  tabs.add("about");
+
+  if (tabs.size <= 2 || ch?.has_videos !== false) tabs.add("videos");
+  if (ch?.has_shorts) tabs.add("shorts");
+  if (ch?.has_live_streams) tabs.add("live");
+  if (ch?.has_playlists) tabs.add("playlists");
+  if (ch?.has_podcasts) tabs.add("podcasts");
+  if (ch?.has_community) tabs.add("posts");
+
+  return [...tabs];
 }
 
 type ContinuationSource = {
@@ -97,7 +511,7 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
 
     const { id } = parsed.data;
     const { nocache } = req.query as { nocache?: string };
-    const cacheKey = `channel:${id}`;
+    const cacheKey = `channel:v2:${id}`;
     if (nocache !== "true") {
       const cached = await getCachedData(cacheKey);
       if (cached) {
@@ -114,15 +528,6 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
       const header = (ch as any).header as any;
       const c4Header = header?.c4TabbedHeader as any;
 
-      // Debug: Log what YouTube API returns
-      console.log('[Channel Debug] YouTube API response:', {
-        id,
-        headerKeys: header ? Object.keys(header) : 'no header',
-        hasBanner: !!header?.banner,
-        bannerThumbnails: header?.banner?.thumbnails,
-        c4HeaderKeys: c4Header ? Object.keys(c4Header) : 'no c4Header',
-      });
-
       const channel = {
         id,
         name: getText(meta?.title ?? header?.title),
@@ -131,7 +536,7 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
         thumbnails: (meta?.thumbnail ?? []).map((t: any) => ({
           url: t.url, width: t.width ?? 0, height: t.height ?? 0,
         })),
-        banners: (header?.banner?.thumbnails ?? []).map((t: any) => ({
+        banners: getChannelBannerCandidates(header).map((t: any) => ({
           url: t.url, width: t.width ?? 0, height: t.height ?? 0,
         })),
         subscriberCount: (function() {
@@ -153,7 +558,7 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
           title: getText(a.platform_name),
           url: a.profile_url ?? "",
         })),
-        tabs: (ch as any).tabs?.map((t: any) => getText(t.title).toLowerCase()) ?? [],
+        tabs: getChannelTabsWithFallback(ch),
       };
 
       const response = { success: true, channel };
@@ -178,7 +583,7 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
 
     const { id } = idParsed.data;
     const { tab, continuation } = qParsed.data;
-    const cacheKey = `channel:${id}:${tab}:${continuation ?? "first"}`;
+    const cacheKey = `channel:v4:${id}:${tab}:${continuation ?? "first"}`;
 
     const cached = await getCachedData(cacheKey);
     if (cached) {
@@ -235,6 +640,8 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
         if (tab === "shorts") return await (ch as any).getShorts?.();
         if (tab === "live") return await (ch as any).getLiveStreams?.();
         if (tab === "playlists") return await (ch as any).getPlaylists?.();
+        if (tab === "podcasts") return await (ch as any).getPodcasts?.();
+        if (tab === "posts") return await (ch as any).getCommunity?.();
         return null;
       };
 
@@ -264,11 +671,16 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
       if (continuation) {
         // Use continuation token to get more videos
         try {
+          const initialTabData = await getInitialTabData();
           const storedSource = getStoredContinuationSource(continuation, id, tab);
 
           if (storedSource) {
             tabData = await storedSource.getContinuation();
           } else {
+            const firstPageToken = findContinuation(initialTabData);
+            if (firstPageToken) {
+              rememberContinuationState(firstPageToken, initialTabData, id, tab);
+            }
             tabData = await resolveContinuationFromTabWalk(continuation);
           }
 
@@ -287,6 +699,11 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
         }
       } else {
         tabData = await getInitialTabData();
+
+        const firstPageToken = findContinuation(tabData);
+        if (firstPageToken) {
+          rememberContinuationState(firstPageToken, tabData, id, tab);
+        }
       }
 
       // Extract items from response - handle different response structures
@@ -295,6 +712,8 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
       // Try different property names based on response structure
       if (Array.isArray(tabData?.videos)) {
         rawItems = tabData.videos;
+      } else if (Array.isArray(tabData?.posts)) {
+        rawItems = tabData.posts;
       } else if (Array.isArray(tabData?.items)) {
         rawItems = tabData.items;
       } else if (Array.isArray(tabData?.playlists)) {
@@ -310,7 +729,7 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
           if (Array.isArray((tabData as any)[key]) && (tabData as any)[key].length > 0) {
             const firstItem = (tabData as any)[key][0];
             // Check if this looks like a video/playlist item
-            if (firstItem?.id || firstItem?.videoId || firstItem?.playlistId) {
+            if (getVideoId(firstItem) || getPlaylistId(firstItem) || getPostId(firstItem) || (tab === "posts" && looksLikePostItem(firstItem))) {
               rawItems = (tabData as any)[key];
               break;
             }
@@ -318,25 +737,85 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
+      if (tab === "posts") {
+        rawItems = [...rawItems, ...collectDeepTabItems(tabData, tab)];
+      } else if (rawItems.length === 0) {
+        rawItems = collectDeepTabItems(tabData, tab);
+      }
+
+      const seenIds = new Set<string>();
+
       const items = rawItems
-        .map((v: any) => {
-          const id = v.id ?? v.videoId ?? v.video_id ?? v.playlist_id ?? v.playlistId;
+        .map((v: any, index: number) => {
+          const isPostTab = tab === "posts";
+          const isPodcastTab = tab === "podcasts";
+          const sourceNode = isPostTab ? unwrapPostNode(v) : v;
+          const videoId = getVideoId(sourceNode);
+          const playlistId = getPlaylistId(sourceNode);
+          const postId = getPostId(sourceNode);
+          const authorAvatar = getAuthorAvatarUrl(sourceNode);
+          const mediaImages = isPostTab ? getPostMediaImages(sourceNode) : [];
+          const content = isPostTab
+            ? getPostContent(sourceNode)
+            : getText(
+                sourceNode.content ??
+                sourceNode.content_text ??
+                sourceNode.text ??
+                sourceNode.body ??
+                sourceNode.description ??
+                getNestedValue(sourceNode, ["content", "content"]) ??
+                getNestedValue(sourceNode, ["attachment", "content_text"])
+              );
+
+          const synthesizedPostId = isPostTab && content
+            ? `post-${String(getPostPublishedAt(sourceNode) || index).replace(/\s+/g, "-")}-${content.slice(0, 24).replace(/\s+/g, "-")}`
+            : null;
+
+          const postScopedId = isPostTab
+            ? (postId ? `post:${postId}` : null)
+            : null;
+
+          const id = videoId ?? playlistId ?? postScopedId ?? synthesizedPostId;
           if (!id) return null;
 
-          const isPlaylist = !!v.playlist_id || !!v.playlistId || v.type === 'Playlist' || v.constructor.name === 'Playlist';
+          const isPlaylist =
+            isPodcastTab ||
+            !!playlistId ||
+            !!sourceNode.playlist_id ||
+            !!sourceNode.playlistId ||
+            sourceNode.type === "Playlist" ||
+            (sourceNode.constructor as { name?: string } | undefined)?.name === "Playlist" ||
+            sourceNode.content_type === "PLAYLIST" ||
+            sourceNode.content_type === "PODCAST";
+
+          const thumbnail =
+            mediaImages[0] ??
+            getThumbnailUrl(sourceNode) ??
+            (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : "");
 
           return {
-            type: isPlaylist ? "playlist" : "video",
+            type: isPostTab ? "post" : isPlaylist ? "playlist" : "video",
             id: String(id),
-            title: getText(v.title),
-            thumbnail: v.thumbnails?.at(-1)?.url ?? v.thumbnails?.[0]?.url ?? v.thumbnail?.url ?? v.thumbnail?.thumbnails?.[0]?.url ?? "",
-            duration: getText(v.duration ?? v.length_text ?? v.lengthText),
-            viewCount: getText(v.view_count ?? v.short_view_count ?? v.views),
-            publishedAt: getText(v.published ?? v.published_time_text ?? v.publishedText),
-            videoCount: v.video_count ?? v.videoCount ?? null,
+            title: getText(sourceNode.title) || content || (isPostTab ? "Community post" : isPodcastTab ? "Podcast" : ""),
+            thumbnail,
+            duration: getText(sourceNode.duration ?? sourceNode.length_text ?? sourceNode.lengthText),
+            viewCount: getText(sourceNode.view_count ?? sourceNode.short_view_count ?? sourceNode.views),
+            publishedAt: isPostTab ? getPostPublishedAt(sourceNode) : getText(sourceNode.published ?? sourceNode.published_time_text ?? sourceNode.publishedText),
+            videoCount: sourceNode.video_count ?? sourceNode.videoCount ?? null,
+            content,
+            authorName: isPostTab ? getPostAuthorName(sourceNode) : getText(sourceNode.author?.name ?? sourceNode.author ?? sourceNode.channel?.name),
+            authorAvatar,
+            mediaImages,
+            likeCount: isPostTab ? getPostLikeCount(sourceNode) : toCount(sourceNode.vote_count ?? sourceNode.like_count ?? sourceNode.likes),
+            commentCount: isPostTab ? getPostCommentCount(sourceNode) : toCount(sourceNode.reply_count ?? sourceNode.comment_count ?? sourceNode.comments_count),
           };
         })
-        .filter(Boolean);
+        .filter((item): item is NonNullable<typeof item> => {
+          if (!item) return false;
+          if (seenIds.has(item.id)) return false;
+          seenIds.add(item.id);
+          return true;
+        });
 
       const response = {
         success: true,
