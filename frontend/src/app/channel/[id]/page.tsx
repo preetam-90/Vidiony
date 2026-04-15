@@ -46,6 +46,7 @@ export default function ChannelPage() {
   const channelId = params.id as string;
   const { data: channel, isLoading, error } = useChannel(channelId);
   const [activeTab, setActiveTab] = useState<ChannelTab>("home");
+  const [searchQuery, setSearchQuery] = useState("");
   const visibleTabs = useMemo(() => getVisibleChannelTabs(channel?.tabs), [channel?.tabs]);
 
   const paginationTabs: ChannelTab[] = ["home", "videos", "shorts", "live", "playlists", "podcasts", "posts"];
@@ -88,6 +89,17 @@ export default function ChannelPage() {
   }, [activeTab, visibleTabs]);
 
   const allVideos = data?.pages.flatMap((page) => page.items) || [];
+
+  // Filter videos based on search query
+  const filteredVideos = useMemo(() => {
+    if (!searchQuery.trim()) return allVideos;
+    const query = searchQuery.toLowerCase();
+    return allVideos.filter((v) => {
+      const title = v.title?.toLowerCase() || "";
+      const description = v.description?.toLowerCase() || "";
+      return title.includes(query) || description.includes(query);
+    });
+  }, [allVideos, searchQuery]);
 
   // Loading state
   if (isLoading) {
@@ -133,296 +145,296 @@ export default function ChannelPage() {
         {/* ── Channel header (banner + info) ─────────────────── */}
         <ChannelHero channel={channel} channelId={channelId} />
 
-        {/* ── Tab navigation ──────────────────────────────────── */}
-        <ChannelNavTabs activeTab={activeTab} onTabChange={setActiveTab} availableTabs={channel.tabs} />
+         {/* ── Tab navigation ──────────────────────────────────── */}
+         <ChannelNavTabs activeTab={activeTab} onTabChange={setActiveTab} availableTabs={channel.tabs} onSearch={setSearchQuery} />
 
         {/* ── Tab content ─────────────────────────────────────── */}
         <div className="mt-6">
 
-          {/* ═══ HOME TAB ═══ */}
-          {activeTab === "home" && (
-            <div>
-              {videosLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  <ChannelVideoCardSkeleton count={8} />
-                </div>
-              ) : allVideos.length > 0 ? (
-                <>
-                  {/* Featured section — YouTube style: horizontal row */}
-                  <HorizontalScrollSection title="Featured">
-                    {allVideos.slice(0, 6).map((v) => (
-                      <div key={v.id} className="flex-shrink-0 w-[280px] sm:w-[320px]">
-                        <ChannelVideoCard item={v} />
-                      </div>
-                    ))}
-                  </HorizontalScrollSection>
+           {/* ═══ HOME TAB ═══ */}
+           {activeTab === "home" && (
+             <div>
+               {videosLoading ? (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                   <ChannelVideoCardSkeleton count={8} />
+                 </div>
+               ) : filteredVideos.length > 0 ? (
+                 <>
+                   {/* Featured section — YouTube style: horizontal row */}
+                   <HorizontalScrollSection title="Featured">
+                     {filteredVideos.slice(0, 6).map((v) => (
+                       <div key={v.id} className="flex-shrink-0 w-[280px] sm:w-[320px]">
+                         <ChannelVideoCard item={v} />
+                       </div>
+                     ))}
+                   </HorizontalScrollSection>
 
-                  {/* Latest uploads — grid */}
-                  <div className="mb-8">
-                    <h2 className="text-lg font-semibold mb-4">Latest uploads</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                      {allVideos.slice(0, 8).map((v) => (
-                        <ChannelVideoCard key={v.id} item={v} />
-                      ))}
-                    </div>
-                  </div>
+                   {/* Latest uploads — grid */}
+                   <div className="mb-8">
+                     <h2 className="text-lg font-semibold mb-4">Latest uploads</h2>
+                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                       {filteredVideos.slice(0, 8).map((v) => (
+                         <ChannelVideoCard key={v.id} item={v} />
+                       ))}
+                     </div>
+                   </div>
 
-                  {/* More videos — horizontal scroll */}
-                  <HorizontalScrollSection title="More videos">
-                    {allVideos.slice(4, 14).map((v) => (
-                      <div key={`more-${v.id}`} className="flex-shrink-0 w-[260px] sm:w-[300px]">
-                        <ChannelVideoCard item={v} />
-                      </div>
-                    ))}
-                  </HorizontalScrollSection>
+                   {/* More videos — horizontal scroll */}
+                   <HorizontalScrollSection title="More videos">
+                     {filteredVideos.slice(4, 14).map((v) => (
+                       <div key={`more-${v.id}`} className="flex-shrink-0 w-[260px] sm:w-[300px]">
+                         <ChannelVideoCard item={v} />
+                       </div>
+                     ))}
+                   </HorizontalScrollSection>
 
-                  {/* Infinite scroll trigger */}
-                  {isFetchingNextPage && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                      <ChannelVideoCardSkeleton count={4} />
-                    </div>
-                  )}
-                  <div ref={ref} className="w-full py-2 min-h-[60px]" />
-                </>
-              ) : (
-                <EmptyState icon={<Play className="h-12 w-12" />} message="No videos yet" />
-              )}
-            </div>
-          )}
+                   {/* Infinite scroll trigger */}
+                   {isFetchingNextPage && (
+                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                       <ChannelVideoCardSkeleton count={4} />
+                     </div>
+                   )}
+                   <div ref={ref} className="w-full py-2 min-h-[60px]" />
+                 </>
+               ) : (
+                 <EmptyState icon={<Play className="h-12 w-12" />} message={searchQuery ? "No videos match your search" : "No videos yet"} />
+               )}
+             </div>
+           )}
 
-          {/* ═══ VIDEOS TAB ═══ */}
-          {activeTab === "videos" && (
-            <div>
-              {videosLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                  <ChannelVideoCardSkeleton count={8} />
-                </div>
-              ) : allVideos.length > 0 ? (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                    {allVideos.map((v) => (
-                      <ChannelVideoCard key={v.id} item={v} />
-                    ))}
-                  </div>
+           {/* ═══ VIDEOS TAB ═══ */}
+           {activeTab === "videos" && (
+             <div>
+               {videosLoading ? (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                   <ChannelVideoCardSkeleton count={8} />
+                 </div>
+               ) : filteredVideos.length > 0 ? (
+                 <>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                     {filteredVideos.map((v) => (
+                       <ChannelVideoCard key={v.id} item={v} />
+                     ))}
+                   </div>
 
-                  {isFetchingNextPage && (
-                    <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                      <ChannelVideoCardSkeleton count={4} />
-                    </div>
-                  )}
+                   {isFetchingNextPage && (
+                     <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                       <ChannelVideoCardSkeleton count={4} />
+                     </div>
+                   )}
 
-                  <div ref={ref} className="w-full py-2 min-h-[60px]" />
-                </>
-              ) : (
-                <EmptyState icon={<Play className="h-12 w-12" />} message="No videos found" />
-              )}
-            </div>
-          )}
+                   <div ref={ref} className="w-full py-2 min-h-[60px]" />
+                 </>
+               ) : (
+                 <EmptyState icon={<Play className="h-12 w-12" />} message={searchQuery ? "No videos match your search" : "No videos found"} />
+               )}
+             </div>
+           )}
 
-          {/* ═══ SHORTS TAB ═══ */}
-          {activeTab === "shorts" && (
-            <div>
-              {videosLoading ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {Array.from({ length: 12 }).map((_, i) => (
-                    <div key={i} className="space-y-2">
-                      <div className="aspect-[9/16] rounded-xl bg-[#1a1a1a] animate-pulse" />
-                      <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
-                      <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
-                    </div>
-                  ))}
-                </div>
-              ) : allVideos.length > 0 ? (
-                <>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                    {allVideos.map((v) => (
-                      <ChannelShortsCard key={v.id} item={v} />
-                    ))}
-                  </div>
+           {/* ═══ SHORTS TAB ═══ */}
+           {activeTab === "shorts" && (
+             <div>
+               {videosLoading ? (
+                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                   {Array.from({ length: 12 }).map((_, i) => (
+                     <div key={i} className="space-y-2">
+                       <div className="aspect-[9/16] rounded-xl bg-[#1a1a1a] animate-pulse" />
+                       <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
+                       <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
+                     </div>
+                   ))}
+                 </div>
+               ) : filteredVideos.length > 0 ? (
+                 <>
+                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                     {filteredVideos.map((v) => (
+                       <ChannelShortsCard key={v.id} item={v} />
+                     ))}
+                   </div>
 
-                  {isFetchingNextPage && (
-                    <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                      {Array.from({ length: 6 }).map((_, i) => (
-                        <div key={i} className="space-y-2">
-                          <div className="aspect-[9/16] rounded-xl bg-[#1a1a1a] animate-pulse" />
-                          <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
-                          <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                   {isFetchingNextPage && (
+                     <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                       {Array.from({ length: 6 }).map((_, i) => (
+                         <div key={i} className="space-y-2">
+                           <div className="aspect-[9/16] rounded-xl bg-[#1a1a1a] animate-pulse" />
+                           <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
+                           <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
+                         </div>
+                       ))}
+                     </div>
+                   )}
 
-                  <div ref={ref} className="w-full py-2 min-h-[60px]" />
-                </>
-              ) : (
-                <EmptyState icon={<Film className="h-12 w-12" />} message="No shorts found" />
-              )}
-            </div>
-          )}
+                   <div ref={ref} className="w-full py-2 min-h-[60px]" />
+                 </>
+               ) : (
+                 <EmptyState icon={<Film className="h-12 w-12" />} message={searchQuery ? "No shorts match your search" : "No shorts found"} />
+               )}
+             </div>
+           )}
 
-          {/* ═══ LIVE TAB ═══ */}
-          {activeTab === "live" && (
-            <div>
-              {videosLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                  <ChannelVideoCardSkeleton count={8} />
-                </div>
-              ) : allVideos.length > 0 ? (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                    {allVideos.map((v) => (
-                      <ChannelVideoCard key={v.id} item={v} />
-                    ))}
-                  </div>
+           {/* ═══ LIVE TAB ═══ */}
+           {activeTab === "live" && (
+             <div>
+               {videosLoading ? (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                   <ChannelVideoCardSkeleton count={8} />
+                 </div>
+               ) : filteredVideos.length > 0 ? (
+                 <>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                     {filteredVideos.map((v) => (
+                       <ChannelVideoCard key={v.id} item={v} />
+                     ))}
+                   </div>
 
-                  {isFetchingNextPage && (
-                    <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                      <ChannelVideoCardSkeleton count={4} />
-                    </div>
-                  )}
+                   {isFetchingNextPage && (
+                     <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                       <ChannelVideoCardSkeleton count={4} />
+                     </div>
+                   )}
 
-                  <div ref={ref} className="w-full py-2 min-h-[60px]" />
-                </>
-              ) : (
-                <EmptyState icon={<Play className="h-12 w-12" />} message="No live streams found" />
-              )}
-            </div>
-          )}
+                   <div ref={ref} className="w-full py-2 min-h-[60px]" />
+                 </>
+               ) : (
+                 <EmptyState icon={<Play className="h-12 w-12" />} message={searchQuery ? "No live streams match your search" : "No live streams found"} />
+               )}
+             </div>
+           )}
 
-          {/* ═══ PLAYLISTS TAB ═══ */}
-          {activeTab === "playlists" && (
-            <div>
-              {videosLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="space-y-2">
-                      <div className="aspect-video rounded-xl bg-[#1a1a1a] animate-pulse" />
-                      <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
-                      <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
-                    </div>
-                  ))}
-                </div>
-              ) : allVideos.length > 0 ? (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                    {allVideos.map((p) => (
-                      <ChannelPlaylistCard key={p.id} item={p} />
-                    ))}
-                  </div>
+           {/* ═══ PLAYLISTS TAB ═══ */}
+           {activeTab === "playlists" && (
+             <div>
+               {videosLoading ? (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                   {Array.from({ length: 8 }).map((_, i) => (
+                     <div key={i} className="space-y-2">
+                       <div className="aspect-video rounded-xl bg-[#1a1a1a] animate-pulse" />
+                       <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
+                       <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
+                     </div>
+                   ))}
+                 </div>
+               ) : filteredVideos.length > 0 ? (
+                 <>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                     {filteredVideos.map((p) => (
+                       <ChannelPlaylistCard key={p.id} item={p} />
+                     ))}
+                   </div>
 
-                  {isFetchingNextPage && (
-                    <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="space-y-2">
-                          <div className="aspect-video rounded-xl bg-[#1a1a1a] animate-pulse" />
-                          <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
-                          <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                   {isFetchingNextPage && (
+                     <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                       {Array.from({ length: 4 }).map((_, i) => (
+                         <div key={i} className="space-y-2">
+                           <div className="aspect-video rounded-xl bg-[#1a1a1a] animate-pulse" />
+                           <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
+                           <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
+                         </div>
+                       ))}
+                     </div>
+                   )}
 
-                  <div ref={ref} className="w-full py-2 min-h-[60px]" />
-                </>
-              ) : (
-                <EmptyState icon={<ListVideo className="h-12 w-12" />} message="No playlists found" />
-              )}
-            </div>
-          )}
+                   <div ref={ref} className="w-full py-2 min-h-[60px]" />
+                 </>
+               ) : (
+                 <EmptyState icon={<ListVideo className="h-12 w-12" />} message={searchQuery ? "No playlists match your search" : "No playlists found"} />
+               )}
+             </div>
+           )}
 
-          {activeTab === "podcasts" && (
-            <div>
-              {videosLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="space-y-2">
-                      <div className="aspect-video rounded-xl bg-[#1a1a1a] animate-pulse" />
-                      <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
-                      <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
-                    </div>
-                  ))}
-                </div>
-              ) : allVideos.length > 0 ? (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                    {allVideos.map((podcast) => (
-                      <ChannelPlaylistCard key={podcast.id} item={podcast} />
-                    ))}
-                  </div>
+           {activeTab === "podcasts" && (
+             <div>
+               {videosLoading ? (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                   {Array.from({ length: 8 }).map((_, i) => (
+                     <div key={i} className="space-y-2">
+                       <div className="aspect-video rounded-xl bg-[#1a1a1a] animate-pulse" />
+                       <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
+                       <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
+                     </div>
+                   ))}
+                 </div>
+               ) : filteredVideos.length > 0 ? (
+                 <>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                     {filteredVideos.map((podcast) => (
+                       <ChannelPlaylistCard key={podcast.id} item={podcast} />
+                     ))}
+                   </div>
 
-                  {isFetchingNextPage && (
-                    <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="space-y-2">
-                          <div className="aspect-video rounded-xl bg-[#1a1a1a] animate-pulse" />
-                          <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
-                          <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                   {isFetchingNextPage && (
+                     <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                       {Array.from({ length: 4 }).map((_, i) => (
+                         <div key={i} className="space-y-2">
+                           <div className="aspect-video rounded-xl bg-[#1a1a1a] animate-pulse" />
+                           <div className="h-4 w-[80%] rounded bg-[#1a1a1a] animate-pulse" />
+                           <div className="h-3 w-[50%] rounded bg-[#1a1a1a] animate-pulse" />
+                         </div>
+                       ))}
+                     </div>
+                   )}
 
-                  <div ref={ref} className="w-full py-2 min-h-[60px]" />
-                </>
-              ) : (
-                <EmptyState icon={<Podcast className="h-12 w-12" />} message="No podcasts found" />
-              )}
-            </div>
-          )}
+                   <div ref={ref} className="w-full py-2 min-h-[60px]" />
+                 </>
+               ) : (
+                 <EmptyState icon={<Podcast className="h-12 w-12" />} message={searchQuery ? "No podcasts match your search" : "No podcasts found"} />
+               )}
+             </div>
+           )}
 
-          {/* ═══ POSTS TAB ═══ */}
-          {activeTab === "posts" && (
-            <div>
-              {videosLoading ? (
-                <div className="space-y-4">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                      <div className="flex gap-3">
-                        <div className="h-10 w-10 rounded-full bg-[#1a1a1a] animate-pulse" />
-                        <div className="flex-1 space-y-2">
-                          <div className="h-4 w-32 rounded bg-[#1a1a1a] animate-pulse" />
-                          <div className="h-4 w-full rounded bg-[#1a1a1a] animate-pulse" />
-                          <div className="h-4 w-[85%] rounded bg-[#1a1a1a] animate-pulse" />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : allVideos.length > 0 ? (
-                <>
-                  <div className="space-y-4">
-                    {allVideos.map((post, index) => (
-                      <ChannelPostCard
-                        key={`${post.id}-${post.publishedAt ?? "na"}-${index}`}
-                        item={post}
-                      />
-                    ))}
-                  </div>
+           {/* ═══ POSTS TAB ═══ */}
+           {activeTab === "posts" && (
+             <div>
+               {videosLoading ? (
+                 <div className="space-y-4">
+                   {Array.from({ length: 4 }).map((_, i) => (
+                     <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                       <div className="flex gap-3">
+                         <div className="h-10 w-10 rounded-full bg-[#1a1a1a] animate-pulse" />
+                         <div className="flex-1 space-y-2">
+                           <div className="h-4 w-32 rounded bg-[#1a1a1a] animate-pulse" />
+                           <div className="h-4 w-full rounded bg-[#1a1a1a] animate-pulse" />
+                           <div className="h-4 w-[85%] rounded bg-[#1a1a1a] animate-pulse" />
+                         </div>
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+               ) : filteredVideos.length > 0 ? (
+                 <>
+                   <div className="space-y-4">
+                     {filteredVideos.map((post, index) => (
+                       <ChannelPostCard
+                         key={`${post.id}-${post.publishedAt ?? "na"}-${index}`}
+                         item={post}
+                       />
+                     ))}
+                   </div>
 
-                  {isFetchingNextPage && (
-                    <div className="mt-4 space-y-4">
-                      {Array.from({ length: 2 }).map((_, i) => (
-                        <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                          <div className="flex gap-3">
-                            <div className="h-10 w-10 rounded-full bg-[#1a1a1a] animate-pulse" />
-                            <div className="flex-1 space-y-2">
-                              <div className="h-4 w-32 rounded bg-[#1a1a1a] animate-pulse" />
-                              <div className="h-4 w-full rounded bg-[#1a1a1a] animate-pulse" />
-                              <div className="h-4 w-[85%] rounded bg-[#1a1a1a] animate-pulse" />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                   {isFetchingNextPage && (
+                     <div className="mt-4 space-y-4">
+                       {Array.from({ length: 2 }).map((_, i) => (
+                         <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                           <div className="flex gap-3">
+                             <div className="h-10 w-10 rounded-full bg-[#1a1a1a] animate-pulse" />
+                             <div className="flex-1 space-y-2">
+                               <div className="h-4 w-32 rounded bg-[#1a1a1a] animate-pulse" />
+                               <div className="h-4 w-full rounded bg-[#1a1a1a] animate-pulse" />
+                               <div className="h-4 w-[85%] rounded bg-[#1a1a1a] animate-pulse" />
+                             </div>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
+                   )}
 
-                  <div ref={ref} className="w-full py-2 min-h-[60px]" />
-                </>
-              ) : (
-                <EmptyState icon={<MessageSquare className="h-12 w-12" />} message="No posts yet" />
-              )}
-            </div>
-          )}
+                   <div ref={ref} className="w-full py-2 min-h-[60px]" />
+                 </>
+               ) : (
+                 <EmptyState icon={<MessageSquare className="h-12 w-12" />} message={searchQuery ? "No posts match your search" : "No posts yet"} />
+               )}
+             </div>
+           )}
 
           {/* ═══ ABOUT TAB ═══ */}
           {activeTab === "about" && channel && (
