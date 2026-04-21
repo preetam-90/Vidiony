@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
 interface SidebarContextType {
   isCollapsed: boolean;
@@ -16,6 +16,20 @@ const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem("vidiony-sidebar-collapsed");
+    if (stored !== null) {
+      setIsCollapsed(stored === "true");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("vidiony-sidebar-collapsed", String(isCollapsed));
+  }, [isCollapsed]);
+
   const toggle = () => setIsCollapsed((prev) => !prev);
   const toggleMobile = () => setIsMobileOpen((prev) => !prev);
   return (

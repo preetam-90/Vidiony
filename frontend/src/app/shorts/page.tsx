@@ -17,7 +17,15 @@ export default function ShortsFeedPage() {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [randomStats, setRandomStats] = useState({ likes: 0, comments: 0 });
   const [loadedVideos, setLoadedVideos] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    setRandomStats({
+      likes: Math.floor(Math.random() * 100000),
+      comments: Math.floor(Math.random() * 5000)
+    });
+  }, [currentIndex]);
 
   const { data: videos, isLoading } = useQuery({
     queryKey: ["category-videos", "shorts"],

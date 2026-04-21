@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">Vidiony Architecture</title>
+  <desc id="desc">High level architecture showing Next.js frontend, Fastify backend, youtubei.js, PostgreSQL, Redis, and BullMQ workers.</desc>
+  <defs>
+    <style>
+      .bg { fill: #0f172a; }
+      .card { fill: #111827; stroke: #334155; stroke-width: 2; rx: 14; ry: 14; }
+      .text { fill: #e2e8f0; font-family: Inter, Segoe UI, Roboto, Arial, sans-serif; font-size: 20px; }
+      .sub { fill: #94a3b8; font-family: Inter, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; }
+      .line { stroke: #38bdf8; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .label { fill: #7dd3fc; font-family: Inter, Segoe UI, Roboto, Arial, sans-serif; font-size: 13px; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,3 L0,6 z" fill="#38bdf8" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1280" height="720" />
+
+  <rect class="card" x="80" y="280" width="220" height="120" />
+  <text class="text" x="190" y="335" text-anchor="middle">User Browser</text>
+  <text class="sub" x="190" y="360" text-anchor="middle">Web client</text>
+
+  <rect class="card" x="390" y="250" width="260" height="150" />
+  <text class="text" x="520" y="315" text-anchor="middle">Next.js Frontend</text>
+  <text class="sub" x="520" y="340" text-anchor="middle">App Router + UI</text>
+
+  <rect class="card" x="740" y="250" width="260" height="150" />
+  <text class="text" x="870" y="315" text-anchor="middle">Fastify Backend</text>
+  <text class="sub" x="870" y="340" text-anchor="middle">API + Auth + Services</text>
+
+  <rect class="card" x="1040" y="80" width="200" height="110" />
+  <text class="text" x="1140" y="130" text-anchor="middle">youtubei.js</text>
+  <text class="sub" x="1140" y="155" text-anchor="middle">YouTube integration</text>
+
+  <rect class="card" x="1040" y="260" width="200" height="110" />
+  <text class="text" x="1140" y="310" text-anchor="middle">PostgreSQL</text>
+  <text class="sub" x="1140" y="335" text-anchor="middle">Prisma persistence</text>
+
+  <rect class="card" x="1040" y="440" width="200" height="110" />
+  <text class="text" x="1140" y="490" text-anchor="middle">Redis</text>
+  <text class="sub" x="1140" y="515" text-anchor="middle">Cache + rate limits</text>
+
+  <rect class="card" x="740" y="520" width="260" height="120" />
+  <text class="text" x="870" y="575" text-anchor="middle">BullMQ Workers</text>
+  <text class="sub" x="870" y="600" text-anchor="middle">Background jobs</text>
+
+  <path class="line" d="M300 340 L390 325" />
+  <text class="label" x="345" y="322" text-anchor="middle">HTTP</text>
+
+  <path class="line" d="M650 325 L740 325" />
+  <text class="label" x="695" y="312" text-anchor="middle">REST API</text>
+
+  <path class="line" d="M1000 275 L1040 180" />
+  <text class="label" x="1014" y="222" text-anchor="middle">Data fetch</text>
+
+  <path class="line" d="M1000 310 L1040 315" />
+  <text class="label" x="1020" y="302" text-anchor="middle">Prisma</text>
+
+  <path class="line" d="M1000 360 L1040 455" />
+  <text class="label" x="1015" y="410" text-anchor="middle">Cache</text>
+
+  <path class="line" d="M1000 545 L1040 520" />
+  <text class="label" x="1018" y="548" text-anchor="middle">Queue backend</text>
+</svg>

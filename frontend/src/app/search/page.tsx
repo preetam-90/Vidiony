@@ -131,25 +131,46 @@ function SearchResults() {
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    setType((searchParams.get("type") as SearchFilters["type"]) ?? "all");
-    setSort((searchParams.get("sort") as SearchFilters["sort"]) ?? "relevance");
-    setUploadDate((searchParams.get("upload_date") as SearchFilters["upload_date"]) ?? undefined);
-    setDuration((searchParams.get("duration") as SearchFilters["duration"]) ?? undefined);
-  }, [searchParams]);
+    const nextType = (searchParams.get("type") as SearchFilters["type"]) ?? "all";
+    const nextSort = (searchParams.get("sort") as SearchFilters["sort"]) ?? "relevance";
+    const nextUploadDate = (searchParams.get("upload_date") as SearchFilters["upload_date"]) ?? undefined;
+    const nextDuration = (searchParams.get("duration") as SearchFilters["duration"]) ?? undefined;
 
-  useEffect(() => {
+    if (nextType !== type) setType(nextType);
+    if (nextSort !== sort) setSort(nextSort);
+    if (nextUploadDate !== uploadDate) setUploadDate(nextUploadDate);
+    if (nextDuration !== duration) setDuration(nextDuration);
+  }, [searchParams, type, sort, uploadDate, duration]);
+
+  const updateSearchFilters = (newFilters: Partial<SearchFilters>) => {
     if (!query) return;
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams.toString());
     params.set("q", query);
-    if (type && type !== "all") params.set("type", type);
-    if (sort && sort !== "relevance") params.set("sort", sort);
-    if (uploadDate) params.set("upload_date", uploadDate);
-    if (duration) params.set("duration", duration);
+
+    const merged = {
+      type: newFilters.type ?? type,
+      sort: newFilters.sort ?? sort,
+      upload_date: newFilters.upload_date ?? uploadDate,
+      duration: newFilters.duration ?? duration,
+    };
+
+    if (merged.type && merged.type !== "all") params.set("type", merged.type);
+    else params.delete("type");
+
+    if (merged.sort && merged.sort !== "relevance") params.set("sort", merged.sort);
+    else params.delete("sort");
+
+    if (merged.upload_date) params.set("upload_date", merged.upload_date);
+    else params.delete("upload_date");
+
+    if (merged.duration) params.set("duration", merged.duration);
+    else params.delete("duration");
+
     const next = `/search?${params.toString()}`;
     if (next !== `${window.location.pathname}${window.location.search}`) {
       router.replace(next);
     }
-  }, [query, type, sort, uploadDate, duration, router]);
+  };
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["search-v2", query, type, sort, uploadDate, duration],
@@ -209,7 +230,7 @@ function SearchResults() {
                   <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wider">Type</p>
                   <div className="flex flex-wrap gap-2">
                     {TYPE_OPTIONS.map((o) => (
-                      <FilterChip key={o.value} active={type === o.value} onClick={() => setType(o.value as SearchFilters["type"])}>
+                      <FilterChip key={o.value} active={type === o.value} onClick={() => updateSearchFilters({ type: o.value as SearchFilters["type"] })}>
                         {o.label}
                       </FilterChip>
                     ))}
@@ -219,7 +240,7 @@ function SearchResults() {
                   <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wider">Sort by</p>
                   <div className="flex flex-wrap gap-2">
                     {SORT_OPTIONS.map((o) => (
-                      <FilterChip key={o.value} active={sort === o.value} onClick={() => setSort(o.value as SearchFilters["sort"])}>
+                      <FilterChip key={o.value} active={sort === o.value} onClick={() => updateSearchFilters({ sort: o.value as SearchFilters["sort"] })}>
                         {o.label}
                       </FilterChip>
                     ))}
@@ -229,9 +250,9 @@ function SearchResults() {
                   <div>
                     <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wider">Upload date</p>
                     <div className="flex flex-wrap gap-2">
-                      <FilterChip active={!uploadDate} onClick={() => setUploadDate(undefined)}>Any time</FilterChip>
+                      <FilterChip active={!uploadDate} onClick={() => updateSearchFilters({ upload_date: undefined })}>Any time</FilterChip>
                       {DATE_OPTIONS.map((o) => (
-                        <FilterChip key={o.value} active={uploadDate === o.value} onClick={() => setUploadDate(o.value as SearchFilters["upload_date"])}>
+                        <FilterChip key={o.value} active={uploadDate === o.value} onClick={() => updateSearchFilters({ upload_date: o.value as SearchFilters["upload_date"] })}>
                           {o.label}
                         </FilterChip>
                       ))}
@@ -240,9 +261,9 @@ function SearchResults() {
                   <div>
                     <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wider">Duration</p>
                     <div className="flex flex-wrap gap-2">
-                      <FilterChip active={!duration} onClick={() => setDuration(undefined)}>Any</FilterChip>
+                      <FilterChip active={!duration} onClick={() => updateSearchFilters({ duration: undefined })}>Any</FilterChip>
                       {DURATION_OPTIONS.map((o) => (
-                        <FilterChip key={o.value} active={duration === o.value} onClick={() => setDuration(o.value as SearchFilters["duration"])}>
+                        <FilterChip key={o.value} active={duration === o.value} onClick={() => updateSearchFilters({ duration: o.value as SearchFilters["duration"] })}>
                           {o.label}
                         </FilterChip>
                       ))}

@@ -1,0 +1,1 @@
+{"nodes": [{"id": "backend_src_types_d_ts", "label": "types.d.ts", "file_type": "code", "source_file": "backend/src/types.d.ts", "source_location": "L1"}], "edges": [{"source": "backend_src_types_d_ts", "target": "fastify", "relation": "imports_from", "confidence": "EXTRACTED", "source_file": "backend/src/types.d.ts", "source_location": "L1", "weight": 1.0}], "raw_calls": []}

@@ -229,7 +229,7 @@ const videoRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // ─── GET /videos/:id/state ────────────────────────────────────────────────
-  fastify.get("/:id/state", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.get("/:id/state", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const { channelId } = req.query as { channelId?: string };
 
@@ -289,7 +289,7 @@ const videoRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // ─── Like / Dislike / Remove (YouTube Data API v3) ────────────────────────
-  fastify.post("/:id/like", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.post("/:id/like", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     try {
       const token = await getYTAccessToken(fastify, req.user!.id);
@@ -302,7 +302,7 @@ const videoRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.post("/:id/dislike", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.post("/:id/dislike", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     try {
       const token = await getYTAccessToken(fastify, req.user!.id);
@@ -315,7 +315,7 @@ const videoRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.delete("/:id/like", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.delete("/:id/like", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     try {
       const token = await getYTAccessToken(fastify, req.user!.id);
@@ -363,7 +363,7 @@ const videoRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.post("/:id/comments", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.post("/:id/comments", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const schema = z.object({ text: z.string().min(1).max(10_000) });
     const parsed = schema.safeParse(req.body);

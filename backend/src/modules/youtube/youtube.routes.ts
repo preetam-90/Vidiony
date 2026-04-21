@@ -139,6 +139,17 @@ const youtubeModuleRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  fastify.get("/guide", async (req, reply) => {
+    try {
+      const guide = await ytService.getGuide();
+      reply.header("Cache-Control", "private, s-maxage=300, stale-while-revalidate=600");
+      return reply.send(guide);
+    } catch (err: any) {
+      fastify.log.error(err, "Guide error");
+      return reply.status(500).send({ error: err?.message ?? "Failed to fetch guide" });
+    }
+  });
+
   // ─── Caption VTT proxy ────────────────────────────────────────────────────
   //
   // Uses yt-dlp to download the WebVTT subtitle file — yt-dlp handles all

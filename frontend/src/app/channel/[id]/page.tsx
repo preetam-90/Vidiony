@@ -49,8 +49,15 @@ export default function ChannelPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const visibleTabs = useMemo(() => getVisibleChannelTabs(channel?.tabs), [channel?.tabs]);
 
+  // Sync activeTab with visibleTabs to ensure valid tab is selected
+  const currentActiveTab = useMemo(() => {
+    if (visibleTabs.length === 0) return activeTab;
+    if (visibleTabs.includes(activeTab)) return activeTab;
+    return visibleTabs[0];
+  }, [activeTab, visibleTabs]);
+
   const paginationTabs: ChannelTab[] = ["home", "videos", "shorts", "live", "playlists", "podcasts", "posts"];
-  const shouldFetchVideos = paginationTabs.includes(activeTab);
+  const shouldFetchVideos = paginationTabs.includes(currentActiveTab);
 
   const {
     data,
@@ -59,9 +66,9 @@ export default function ChannelPage() {
     fetchNextPage,
     hasNextPage,
   } = useInfiniteQuery({
-    queryKey: ["channel-videos", channelId, activeTab],
+    queryKey: ["channel-videos", channelId, currentActiveTab],
     queryFn: ({ pageParam }) => {
-      const tabToFetch = activeTab === "home" ? "videos" : activeTab;
+      const tabToFetch = currentActiveTab === "home" ? "videos" : currentActiveTab;
       return api.getChannelVideos(
         channelId,
         tabToFetch as "videos" | "shorts" | "live" | "playlists" | "podcasts" | "posts",
@@ -81,25 +88,16 @@ export default function ChannelPage() {
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  useEffect(() => {
-    if (visibleTabs.length === 0) return;
-    if (!visibleTabs.includes(activeTab)) {
-      setActiveTab(visibleTabs[0]);
-    }
-  }, [activeTab, visibleTabs]);
-
-  const allVideos = data?.pages.flatMap((page) => page.items) || [];
-
   // Filter videos based on search query
   const filteredVideos = useMemo(() => {
+    const allVideos = data?.pages.flatMap((page) => page.items) || [];
     if (!searchQuery.trim()) return allVideos;
     const query = searchQuery.toLowerCase();
     return allVideos.filter((v) => {
       const title = v.title?.toLowerCase() || "";
-      const description = v.description?.toLowerCase() || "";
-      return title.includes(query) || description.includes(query);
+      return title.includes(query);
     });
-  }, [allVideos, searchQuery]);
+  }, [data, searchQuery]);
 
   // Loading state
   if (isLoading) {
@@ -142,17 +140,21 @@ export default function ChannelPage() {
       <Navbar />
 
       <main className={cn("mx-auto max-w-[1280px] px-4 py-6", sidebarPadding)}>
-        {/* ── Channel header (banner + info) ─────────────────── */}
-        <ChannelHero channel={channel} channelId={channelId} />
+          <div className="mx-auto max-w-[1280px]">
+            {/* ── Channel header (banner + info) ─────────────────── */}
+            <div className="w-full">
+              <ChannelHero channel={channel} channelId={channelId} />
+            </div>
 
-         {/* ── Tab navigation ──────────────────────────────────── */}
-         <ChannelNavTabs activeTab={activeTab} onTabChange={setActiveTab} availableTabs={channel.tabs} onSearch={setSearchQuery} />
+             {/* ── Tab navigation ──────────────────────────────────── */}
+             <ChannelNavTabs activeTab={currentActiveTab} onTabChange={setActiveTab} availableTabs={channel.tabs} onSearch={setSearchQuery} />
+          </div>
 
         {/* ── Tab content ─────────────────────────────────────── */}
         <div className="mt-6">
 
            {/* ═══ HOME TAB ═══ */}
-           {activeTab === "home" && (
+           {currentActiveTab === "home" && (
              <div>
                {videosLoading ? (
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -160,14 +162,32 @@ export default function ChannelPage() {
                  </div>
                ) : filteredVideos.length > 0 ? (
                  <>
-                   {/* Featured section — YouTube style: horizontal row */}
-                   <HorizontalScrollSection title="Featured">
+                   {/* Featured section — YouTube style: For You row */}
+                   <HorizontalScrollSection title="For You">
                      {filteredVideos.slice(0, 6).map((v) => (
-                       <div key={v.id} className="flex-shrink-0 w-[280px] sm:w-[320px]">
-                         <ChannelVideoCard item={v} />
+                       <div key={v.id} className="flex-shrink-0 w-[240px] sm:w-[260px] md:w-[280px]">
+                         <ChannelVideoCard item={v} variant="vertical" channelName={channel.name} />
                        </div>
                      ))}
                    </HorizontalScrollSection>
+
+                   {/* Second Section: specific playlist style row */}
+                   <div className="mb-8">
+                     <div className="flex items-center gap-4 mb-4">
+                       <h2 className="text-lg font-semibold">Kissa by Bhupinder Soni</h2>
+                       <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-white/10 text-sm font-medium transition-colors">
+                         <Play className="h-4 w-4 fill-current" />
+                         Play all
+                       </button>
+                     </div>
+                     <div className="flex overflow-x-auto gap-3 pb-2" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+                       {filteredVideos.slice(0, 6).map((v) => (
+                         <div key={`kissa-${v.id}`} className="flex-shrink-0 w-[240px] sm:w-[260px] md:w-[280px]">
+                           <ChannelVideoCard item={v} variant="vertical" channelName={channel.name} />
+                         </div>
+                       ))}
+                     </div>
+                   </div>
 
                    {/* Latest uploads — grid */}
                    <div className="mb-8">
@@ -203,7 +223,7 @@ export default function ChannelPage() {
            )}
 
            {/* ═══ VIDEOS TAB ═══ */}
-           {activeTab === "videos" && (
+           {currentActiveTab === "videos" && (
              <div>
                {videosLoading ? (
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
@@ -232,7 +252,7 @@ export default function ChannelPage() {
            )}
 
            {/* ═══ SHORTS TAB ═══ */}
-           {activeTab === "shorts" && (
+           {currentActiveTab === "shorts" && (
              <div>
                {videosLoading ? (
                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -273,7 +293,7 @@ export default function ChannelPage() {
            )}
 
            {/* ═══ LIVE TAB ═══ */}
-           {activeTab === "live" && (
+           {currentActiveTab === "live" && (
              <div>
                {videosLoading ? (
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
@@ -302,7 +322,7 @@ export default function ChannelPage() {
            )}
 
            {/* ═══ PLAYLISTS TAB ═══ */}
-           {activeTab === "playlists" && (
+           {currentActiveTab === "playlists" && (
              <div>
                {videosLoading ? (
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
@@ -342,7 +362,7 @@ export default function ChannelPage() {
              </div>
            )}
 
-           {activeTab === "podcasts" && (
+           {currentActiveTab === "podcasts" && (
              <div>
                {videosLoading ? (
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
@@ -383,7 +403,7 @@ export default function ChannelPage() {
            )}
 
            {/* ═══ POSTS TAB ═══ */}
-           {activeTab === "posts" && (
+           {currentActiveTab === "posts" && (
              <div>
                {videosLoading ? (
                  <div className="space-y-4">
@@ -436,8 +456,8 @@ export default function ChannelPage() {
              </div>
            )}
 
-          {/* ═══ ABOUT TAB ═══ */}
-          {activeTab === "about" && channel && (
+           {/* ═══ ABOUT TAB ═══ */}
+           {currentActiveTab === "about" && channel && (
             <ChannelAbout
               about={{
                 description: channel.description,

@@ -22,6 +22,7 @@ import { toErrorResponse, AppError } from "./utils/errors.js";
 import prismaPlugin from "./plugins/prisma.js";
 import redisPlugin from "./plugins/redis.js";
 import metricsPlugin from "./plugins/metrics.js";
+import { swaggerPlugin } from "./plugins/swagger.js";
 
 // Modules
 import authRoutes from "./modules/auth/auth.routes.js";
@@ -52,6 +53,7 @@ export async function buildApp() {
   await app.register(redisPlugin);
   await app.register(prismaPlugin);
   await app.register(metricsPlugin);
+  await swaggerPlugin(app);
 
   // ─── Security ─────────────────────────────────────────────────────────────
   await app.register(helmet, {
@@ -131,49 +133,6 @@ export async function buildApp() {
     } catch {
       req.user = null;
     }
-  });
-
-  app.decorate("requireYouTube", async function (req: any, reply: any) {
-    // First ensure JWT is valid (from cookie)
-    const token = req.cookies?.access_token;
-    if (!token) {
-      return reply.status(401).send({
-        success: false,
-        error: { code: "UNAUTHORIZED", message: "Authentication required" },
-      });
-    }
-    try {
-      const payload = app.jwt.verify(token);
-      req.user = payload;
-    } catch (err) {
-      return reply.status(401).send({
-        success: false,
-        error: { code: "UNAUTHORIZED", message: "Invalid or expired access token" },
-      });
-    }
-
-    // IMPORTANT: do not trust youtubeConnected from the JWT payload alone.
-    // The user may have connected YouTube after the token was issued.
-    const dbUser = await app.prisma.user.findUnique({
-      where: { id: req.user!.id },
-      select: { youtubeConnected: true },
-    });
-
-    if (!dbUser?.youtubeConnected) {
-      return reply.status(403).send({
-        success: false,
-        error: {
-          code: "YOUTUBE_AUTH_REQUIRED",
-          message: "A connected YouTube account is required. Connect via POST /auth/youtube/connect",
-        },
-      });
-    }
-
-    // Keep request.user in sync for downstream handlers
-    req.user = {
-      ...req.user,
-      youtubeConnected: true,
-    };
   });
 
   // ─── Global error handler ─────────────────────────────────────────────────

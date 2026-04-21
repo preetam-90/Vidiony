@@ -1,0 +1,301 @@
+{
+  "nodes": [
+    {
+      "id": "frontend_src_app_feed_page_tsx",
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "page_getbestthumb",
+      "label": "getBestThumb()",
+      "file_type": "code",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L31"
+    },
+    {
+      "id": "page_videocard",
+      "label": "VideoCard()",
+      "file_type": "code",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L37"
+    },
+    {
+      "id": "page_handleloadmore",
+      "label": "handleLoadMore()",
+      "file_type": "code",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L199"
+    },
+    {
+      "id": "frontend_src_app_api_feed_route_ts",
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "route_gettext",
+      "label": "getText()",
+      "file_type": "code",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L38"
+    },
+    {
+      "id": "route_getbestthumb",
+      "label": "getBestThumb()",
+      "file_type": "code",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L49"
+    },
+    {
+      "id": "route_mapvideo",
+      "label": "mapVideo()",
+      "file_type": "code",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L57"
+    },
+    {
+      "id": "route_normalizesection",
+      "label": "normalizeSection()",
+      "file_type": "code",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L71"
+    },
+    {
+      "id": "route_fetchfeed",
+      "label": "fetchFeed()",
+      "file_type": "code",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L81"
+    },
+    {
+      "id": "route_get",
+      "label": "GET()",
+      "file_type": "code",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L110"
+    }
+  ],
+  "edges": [
+    {
+      "source": "frontend_src_app_feed_page_tsx",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_feed_page_tsx",
+      "target": "navigation",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_feed_page_tsx",
+      "target": "react_query",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_feed_page_tsx",
+      "target": "navbar",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_feed_page_tsx",
+      "target": "sidebar",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_feed_page_tsx",
+      "target": "sidebar_context",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_feed_page_tsx",
+      "target": "skeleton",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L9",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_feed_page_tsx",
+      "target": "lucide_react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_feed_page_tsx",
+      "target": "link",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L11",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_feed_page_tsx",
+      "target": "utils",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L12",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_feed_page_tsx",
+      "target": "page_getbestthumb",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L31",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_feed_page_tsx",
+      "target": "page_videocard",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L37",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_feed_page_tsx",
+      "target": "page_handleloadmore",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L199",
+      "weight": 1.0
+    },
+    {
+      "source": "page_videocard",
+      "target": "page_getbestthumb",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/feed/page.tsx",
+      "source_location": "L39",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_api_feed_route_ts",
+      "target": "server",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_api_feed_route_ts",
+      "target": "route_gettext",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L38",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_api_feed_route_ts",
+      "target": "route_getbestthumb",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L49",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_api_feed_route_ts",
+      "target": "route_mapvideo",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L57",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_api_feed_route_ts",
+      "target": "route_normalizesection",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L71",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_api_feed_route_ts",
+      "target": "route_fetchfeed",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L81",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_app_api_feed_route_ts",
+      "target": "route_get",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L110",
+      "weight": 1.0
+    },
+    {
+      "source": "route_mapvideo",
+      "target": "route_gettext",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L60",
+      "weight": 1.0
+    },
+    {
+      "source": "route_normalizesection",
+      "target": "route_gettext",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L72",
+      "weight": 1.0
+    },
+    {
+      "source": "route_get",
+      "target": "route_fetchfeed",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/app/api/feed/route.ts",
+      "source_location": "L115",
+      "weight": 1.0
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

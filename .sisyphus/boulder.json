@@ -1,0 +1,34 @@
+{
+  "active_plan": null,
+  "started_at": "2026-04-19T05:56:06.392Z",
+  "completed_at": "2026-04-19T06:30:00.000Z",
+  "session_ids": [
+    "ses_25bb0b1f9ffe8JaMGzVMjt8HS7",
+    "ses_25bafcb25ffeDlG5q53J7b3sOJ",
+    "ses_25bafbddbffextUnqMJ37FDPNe",
+    "ses_25bab29fcffeMCksO8I8OgJ7Lg"
+  ],
+  "plan_name": "single-auth-redesign",
+  "worktree_path": null,
+  "session_origins": {
+    "ses_25bb0b1f9ffe8JaMGzVMjt8HS7": "direct",
+    "ses_25bafcb25ffeDlG5q53J7b3sOJ": "appended",
+    "ses_25bafbddbffextUnqMJ37FDPNe": "appended",
+    "ses_25bab29fcffeMCksO8I8OgJ7Lg": "appended"
+  },
+  "task_sessions": {},
+  "status": "COMPLETED",
+  "verification_summary": {
+    "preflight": {
+      "backend_build": "PASS",
+      "frontend_build": "PASS",
+      "prisma_validate": "PASS"
+    },
+    "qa_tests": {
+      "QA-1_email_password_login_404": "PASS",
+      "QA-4_home_feed_anonymous_401": "PASS",
+      "QA-5_youtube_connect_404": "PASS",
+      "QA-5_youtube_disconnect_404": "PASS"
+    }
+  }
+}

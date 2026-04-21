@@ -1,485 +1,552 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { memo, useEffect, useState, useMemo, type ComponentType } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import {
-  Home,
-  Flame,
   Compass,
   History,
+  Home,
+  Library,
+  Radio,
+  TrendingUp,
   Clock,
-  Heart,
-  Video,
-  Music,
-  Gamepad2,
-  Code2,
-  Film,
-  Brain,
+  ThumbsUp,
+  Video as VideoIcon,
   Settings,
-  LogOut,
-  Menu,
-  Upload,
-  ChevronDown,
-  X,
-  ListVideo,
-  Play,
+  ChevronRight,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useAuth } from "@/contexts/auth-context";
 import { useSidebar } from "@/contexts/sidebar-context";
-import { usePlayerStore, type QueueItem as QueueItemType } from "@/store/playerStore";
-import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useYouTubeGuide, getIcon } from "@/hooks/useYouTubeGuide";
 
-interface NavItem {
+type NavItem = {
   href: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badge?: number;
+  icon: ComponentType<{ className?: string }>;
+  match?: (pathname: string) => boolean;
+  thumbnail?: string;
+};
+
+const DESKTOP_WIDTH_EXPANDED = 248;
+const DESKTOP_WIDTH_COLLAPSED = 72;
+
+const PRIMARY_NAV: NavItem[] = [
+  {
+    href: "/",
+    label: "Home",
+    icon: Home,
+    match: (pathname) => pathname === "/",
+  },
+  {
+    href: "/trending",
+    label: "Trending",
+    icon: TrendingUp,
+    match: (pathname) => pathname.startsWith("/trending"),
+  },
+  {
+    href: "/subscriptions",
+    label: "Subscriptions",
+    icon: Radio,
+    match: (pathname) => pathname.startsWith("/subscriptions"),
+  },
+];
+
+const FALLBACK_NAV: NavItem[] = [
+  {
+    href: "/library",
+    label: "Library",
+    icon: Library,
+    match: (pathname) => pathname.startsWith("/library"),
+  },
+  {
+    href: "/history",
+    label: "History",
+    icon: History,
+    match: (pathname) => pathname.startsWith("/history"),
+  },
+  {
+    href: "/explore",
+    label: "Explore",
+    icon: Compass,
+    match: (pathname) => pathname.startsWith("/explore") || pathname.startsWith("/category"),
+  },
+];
+
+const PERSONAL_NAV: NavItem[] = [
+  {
+    href: "/watch-later",
+    label: "Watch Later",
+    icon: Clock,
+    match: (pathname) => pathname.startsWith("/watch-later"),
+  },
+  {
+    href: "/liked-videos",
+    label: "Liked Videos",
+    icon: ThumbsUp,
+    match: (pathname) => pathname.startsWith("/liked-videos"),
+  },
+  {
+    href: "/my-videos",
+    label: "My Videos",
+    icon: VideoIcon,
+    match: (pathname) => pathname.startsWith("/my-videos"),
+  },
+];
+
+const FOOTER_NAV: NavItem[] = [
+  {
+    href: "/settings",
+    label: "Settings",
+    icon: Settings,
+    match: (pathname) => pathname.startsWith("/settings"),
+  },
+];
+
+const MOBILE_NAV: NavItem[] = [
+  PRIMARY_NAV[0],
+  PRIMARY_NAV[1],
+  PRIMARY_NAV[2],
+  FALLBACK_NAV[0],
+];
+
+function isActive(item: NavItem, pathname: string): boolean {
+  if (item.match) return item.match(pathname);
+  return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-interface NavSection {
-  title?: string;
-  items: NavItem[];
-}
-
-const mainNavSections: NavSection[] = [
-  {
-    items: [
-      { href: "/", label: "Home", icon: Home },
-      { href: "/explore", label: "Explore", icon: Compass },
-      { href: "/trending", label: "Trending", icon: Flame },
-    ],
-  },
-];
-
-// These sections are only shown when user is logged in
-const authRequiredSections: NavSection[] = [
-  {
-    title: "Library",
-    items: [
-      { href: "/history", label: "Watch History", icon: History },
-      { href: "/watch-later", label: "Watch Later", icon: Clock },
-      { href: "/liked-videos", label: "Liked Videos", icon: Heart },
-      { href: "/my-videos", label: "My Videos", icon: Video },
-    ],
-  },
-  {
-    title: "Subscriptions",
-    items: [{ href: "/subscriptions", label: "Subscriptions", icon: Heart }],
-  },
-];
-
-const categoryItems: NavItem[] = [
-  { href: "/category/music", label: "Music", icon: Music },
-  { href: "/category/gaming", label: "Gaming", icon: Gamepad2 },
-  { href: "/category/programming", label: "Coding", icon: Code2 },
-  { href: "/category/film", label: "Films & TV", icon: Film },
-  { href: "/category/ai", label: "AI & Tech", icon: Brain },
-];
-
-function NavItemComponent({
+const SidebarNavLink = memo(function SidebarNavLink({
   item,
+  pathname,
   collapsed,
-  isActive,
+  onNavigate,
 }: {
   item: NavItem;
-  collapsed?: boolean;
-  isActive: boolean;
+  pathname: string;
+  collapsed: boolean;
+  onNavigate?: () => void;
 }) {
-  return (
+  const active = isActive(item, pathname);
+  const Icon = item.icon;
+
+  const link = (
     <Link
       href={item.href}
+      onClick={onNavigate}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "group flex items-center gap-3 rounded-lg transition-all duration-200",
-        collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
-        isActive
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        "group relative flex h-11 items-center rounded-xl px-3 text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+        collapsed ? "justify-center px-0" : "justify-start gap-3",
+        active
+          ? "bg-primary/10 text-primary shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+          : "text-foreground/70 hover:bg-white/5 hover:text-foreground"
       )}
-      title={collapsed ? item.label : undefined}
     >
-      <span
-        className={cn(
-          "relative flex shrink-0 items-center justify-center transition-colors duration-200",
-          isActive ? "text-primary" : "text-muted-foreground group-hover:text-accent-foreground"
-        )}
+      {active && (
+        <motion.div
+          layoutId="sidebar-active-indicator"
+          className="absolute left-0 h-6 w-1 rounded-r-full bg-primary"
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        />
+      )}
+      <motion.div
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+        className="shrink-0"
       >
-        <item.icon className={cn("h-[1.15rem] w-[1.15rem]", collapsed ? "h-5 w-5" : "")} />
-        {isActive && <span className="absolute -left-3 h-1.5 w-1.5 rounded-full bg-primary" />}
-      </span>
+        {item.thumbnail ? (
+          <img src={item.thumbnail} alt={item.label} className={cn("h-6 w-6 rounded-full", !active && "grayscale opacity-80")} />
+        ) : (
+          <Icon className={cn("h-5 w-5 transition-colors", active ? "text-primary" : "text-foreground/60 group-hover:text-foreground")} />
+        )}
+      </motion.div>
       {!collapsed && (
-        <span className="flex flex-1 items-center justify-between">
-          <span className="truncate text-[13px] font-medium">{item.label}</span>
-          {item.badge && item.badge > 0 && (
-            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-medium">
-              {item.badge}
-            </Badge>
-          )}
-        </span>
+        <motion.span
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="truncate font-medium"
+        >
+          {item.label}
+        </motion.span>
       )}
     </Link>
   );
-}
 
-// Queue item component for sidebar
-function QueueNavItem({
-  item,
-  index,
-  collapsed,
-  isPlaying,
-}: {
-  item: QueueItemType;
-  index: number;
-  collapsed?: boolean;
-  isPlaying: boolean;
-}) {
-  const { removeFromQueue, playFromQueue } = usePlayerStore();
-  const router = useRouter();
-
-  const handlePlay = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const queueItem = playFromQueue(index);
-    if (queueItem) {
-      router.push(`/watch/${queueItem.videoId}`);
-    }
-  };
-
-  const handleRemove = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    removeFromQueue(item.videoId);
-  };
-
-  if (collapsed) {
-    return (
-      <div
-        className="group relative flex cursor-pointer items-center justify-center rounded-lg p-2 hover:bg-accent"
-        title={item.title}
-      >
-        <div className="h-8 w-8 shrink-0 overflow-hidden rounded">
-          {item.thumbnail ? (
-            <img src={item.thumbnail} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-muted">
-              <Video className="h-4 w-4 text-muted-foreground" />
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+  if (!collapsed) return link;
 
   return (
+    <Tooltip>
+      <TooltipTrigger asChild>{link}</TooltipTrigger>
+      <TooltipContent side="right" sideOffset={10}>
+        {item.label}
+      </TooltipContent>
+    </Tooltip>
+  );
+});
+
+function SidebarSection({
+  title,
+  items,
+  pathname,
+  collapsed,
+  onNavigate,
+}: {
+  title?: string;
+  items: NavItem[];
+  pathname: string;
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
+  return (
+    <section className="space-y-1.5" aria-label={title ?? "Primary navigation"}>
+      {!collapsed && title ? (
+        <h2 className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/45">
+          {title}
+        </h2>
+      ) : null}
+      {items.map((item) => (
+        <SidebarNavLink
+          key={item.href + item.label}
+          item={item}
+          pathname={pathname}
+          collapsed={collapsed}
+          onNavigate={onNavigate}
+        />
+      ))}
+    </section>
+  );
+}
+
+function SidebarSkeletonItem({ collapsed }: { collapsed: boolean }) {
+  const item = (
     <div
       className={cn(
-        "group flex items-center gap-2 rounded-lg p-2 transition-colors hover:bg-accent",
-        isPlaying && "bg-primary/10"
+        "group relative flex h-11 items-center rounded-xl px-3 transition-all duration-200",
+        collapsed ? "justify-center px-0" : "justify-start gap-3"
       )}
     >
-      <div className="h-10 w-[60px] shrink-0 overflow-hidden rounded bg-muted">
-        {item.thumbnail ? (
-          <img src={item.thumbnail} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <Video className="h-4 w-4 text-muted-foreground" />
-          </div>
-        )}
+      <div className="shrink-0">
+        <Skeleton className="h-5 w-5 rounded-md bg-white/10" />
       </div>
-      <div className="flex-1 min-w-0">
-        <p className={cn("truncate text-[12px] font-medium", isPlaying ? "text-primary" : "text-foreground")}>
-          {item.title || "Untitled"}
-        </p>
-        <p className="truncate text-[10px] text-muted-foreground">
-          {item.channelName || "Unknown channel"}
-        </p>
-      </div>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-        <button
-          onClick={handlePlay}
-          className="rounded p-1 hover:bg-background/80"
-          title="Play"
-        >
-          <Play className="h-3.5 w-3.5" />
-        </button>
-        <button
-          onClick={handleRemove}
-          className="rounded p-1 hover:bg-background/80"
-          title="Remove"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function SidebarContent({
-  collapsed,
-  onClose,
-}: {
-  collapsed?: boolean;
-  onClose?: () => void;
-}) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { user, isAuthenticated, logout } = useAuth();
-  const { queue, currentQueueIndex, clearQueue } = usePlayerStore();
-
-  const userInitials = user?.name
-    ? user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
-    : user?.username?.[0]?.toUpperCase() ?? "U";
-
-  const handleLogout = async () => {
-    await logout();
-    router.push("/");
-    onClose?.();
-  };
-
-  const handleLinkClick = () => {
-    onClose?.();
-  };
-
-  return (
-    <div className="flex h-full flex-col">
-      {/* Header */}
-      <div
-        className={cn(
-          "flex h-14 items-center border-b border-border/40",
-          collapsed ? "justify-center px-2" : "justify-between px-4"
-        )}
-      >
-        {!collapsed && (
-          <Link href="/" className="flex items-center gap-2.5" onClick={handleLinkClick}>
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary shadow-md shadow-primary/20">
-              <svg viewBox="0 0 40 40" className="h-4 w-4" fill="none">
-                <path d="M10 30V10L20 22L30 10V30" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <span className="text-[15px] font-semibold text-foreground">Vidion</span>
-          </Link>
-        )}
-        {collapsed && (
-          <Link href="/" className="flex h-8 w-8 items-center justify-center rounded-md bg-primary" onClick={handleLinkClick}>
-            <svg viewBox="0 0 40 40" className="h-4 w-4" fill="none">
-              <path d="M10 30V10L20 22L30 10V30" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
-        )}
-      </div>
-
-      <ScrollArea className="flex-1 py-3">
-        <div className={cn("space-y-4", collapsed ? "px-2" : "px-3")}>
-          {/* Public navigation - shown to everyone */}
-          {mainNavSections.map((section, sectionIndex) => (
-            <div key={section.title || sectionIndex}>
-              {!collapsed && section.title && (
-                <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                  {section.title}
-                </p>
-              )}
-              <div className="space-y-0.5">
-                {section.items.map((item) => (
-                  <NavItemComponent
-                    key={item.href}
-                    item={item}
-                    collapsed={collapsed}
-                    isActive={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {/* Auth required sections - only shown when logged in */}
-          {isAuthenticated && authRequiredSections.map((section, sectionIndex) => (
-            <div key={section.title || sectionIndex}>
-              {!collapsed && section.title && (
-                <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                  {section.title}
-                </p>
-              )}
-              <div className="space-y-0.5">
-                {section.items.map((item) => (
-                  <NavItemComponent
-                    key={item.href}
-                    item={item}
-                    collapsed={collapsed}
-                    isActive={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {/* Queue Section - Only show when queue has items */}
-          {queue.length > 0 && (
-            <>
-              {!collapsed && (
-                <div className="flex items-center justify-between px-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                    Queue ({queue.length})
-                  </p>
-                  <button
-                    onClick={() => clearQueue()}
-                    className="text-[10px] text-muted-foreground hover:text-foreground"
-                  >
-                    Clear all
-                  </button>
-                </div>
-              )}
-              <div className={cn("space-y-0.5", collapsed ? "" : "px-2")}>
-                {queue.slice(0, 5).map((item, index) => (
-                  <QueueNavItem
-                    key={item.videoId}
-                    item={item}
-                    index={index}
-                    collapsed={collapsed}
-                    isPlaying={currentQueueIndex === index}
-                  />
-                ))}
-                {queue.length > 5 && !collapsed && (
-                  <p className="px-3 py-1 text-[10px] text-muted-foreground">
-                    +{queue.length - 5} more in queue
-                  </p>
-                )}
-              </div>
-              <Separator className="my-3 bg-border/40" />
-            </>
-          )}
-
-          {!collapsed && (
-            <>
-              <Separator className="my-3 bg-border/40" />
-              <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                Categories
-              </p>
-            </>
-          )}
-          <div className="space-y-0.5">
-            {categoryItems.map((item) => (
-              <NavItemComponent
-                key={item.href}
-                item={item}
-                collapsed={collapsed}
-                isActive={pathname === item.href || (pathname.startsWith("/category") && pathname.includes(item.label.toLowerCase()))}
-              />
-            ))}
-          </div>
-
-          {/* Queue section - collapsed indicator */}
-          {queue.length > 0 && collapsed && (
-            <div className="mb-2 flex justify-center">
-              <div className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg hover:bg-accent" title={`Queue (${queue.length})`}>
-                <ListVideo className="h-4 w-4" />
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
-                  {queue.length > 9 ? "9+" : queue.length}
-                </span>
-              </div>
-            </div>
-          )}
-
-          <Separator className="my-3 bg-border/40" />
-
-          {!collapsed ? (
-            <div className="space-y-0.5">
-              <Link href="/upload" onClick={handleLinkClick} className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground">
-                <Upload className="h-[1.15rem] w-[1.15rem]" />
-                <span className="text-[13px] font-medium">Upload</span>
-              </Link>
-              <Link href="/settings" onClick={handleLinkClick} className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground">
-                <Settings className="h-[1.15rem] w-[1.15rem]" />
-                <span className="text-[13px] font-medium">Settings</span>
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-0.5">
-              <Link href="/upload" onClick={handleLinkClick} className="flex items-center justify-center rounded-lg py-2.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground" title="Upload">
-                <Upload className="h-5 w-5" />
-              </Link>
-              <Link href="/settings" onClick={handleLinkClick} className="flex items-center justify-center rounded-lg py-2.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground" title="Settings">
-                <Settings className="h-5 w-5" />
-              </Link>
-            </div>
-          )}
-
-          {isAuthenticated ? (
-            <div className="pt-2">
-              {!collapsed && (
-                <div className="mb-2 flex items-center justify-between px-3">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">Account</span>
-                </div>
-              )}
-              <button onClick={handleLogout} className={cn("flex w-full items-center gap-3 rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground", collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2")} title={collapsed ? "Sign Out" : undefined}>
-                <LogOut className="h-[1.15rem] w-[1.15rem] shrink-0" />
-                {!collapsed && <span className="text-[13px] font-medium">Sign Out</span>}
-              </button>
-            </div>
-          ) : (
-            !collapsed && (
-              <div className="rounded-lg bg-accent/50 p-4">
-                <p className="mb-3 text-[13px] text-muted-foreground">Sign in to access your personalized library</p>
-                <Button asChild className="w-full" size="sm">
-                  <Link href="/auth/login" onClick={handleLinkClick}>Sign In</Link>
-                </Button>
-              </div>
-            )
-          )}
-        </div>
-      </ScrollArea>
-
-      {isAuthenticated && !collapsed && (
-        <div className="border-t border-border/40 p-3">
-          <button onClick={() => { router.push("/settings"); onClose?.(); }} className="flex w-full items-center gap-3 rounded-lg p-1.5 transition-colors hover:bg-accent">
-            <Avatar className="h-9 w-9">
-              <AvatarImage src={user?.avatar ?? ""} />
-              <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">{userInitials}</AvatarFallback>
-            </Avatar>
-            <div className="flex flex-1 flex-col items-start overflow-hidden">
-              <p className="truncate text-[13px] font-medium text-foreground">{user?.name ?? user?.username}</p>
-              <p className="truncate text-[11px] text-muted-foreground">{user?.email}</p>
-            </div>
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          </button>
-        </div>
+      {!collapsed && (
+        <Skeleton className="h-4 w-24 rounded bg-white/10" />
       )}
     </div>
   );
+
+  if (!collapsed) return item;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{item}</TooltipTrigger>
+      <TooltipContent side="right" sideOffset={10}>
+        <Skeleton className="h-4 w-16 bg-white/10" />
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
-export function Sidebar({ className }: { className?: string }) {
-  const { isCollapsed } = useSidebar();
-  const [mounted, setMounted] = useState(false);
+function SidebarSkeletonSection({ 
+  hasTitle, 
+  itemCount, 
+  collapsed 
+}: { 
+  hasTitle?: boolean;
+  itemCount: number;
+  collapsed: boolean;
+}) {
+  return (
+    <section className="space-y-1.5">
+      {!collapsed && hasTitle ? (
+        <Skeleton className="mx-3 mb-2 h-3 w-16 rounded bg-white/10" />
+      ) : null}
+      {Array.from({ length: itemCount }).map((_, i) => (
+        <SidebarSkeletonItem key={i} collapsed={collapsed} />
+      ))}
+    </section>
+  );
+}
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return null;
-  }
-
-  // Mobile: Don't render anything here, Navbar handles it
-  // Desktop only
+function SidebarSkeleton({ collapsed }: { collapsed: boolean }) {
   return (
     <>
-      <aside
-        className={cn(
-          "fixed left-0 top-0 z-40 hidden h-screen border-r border-border/40 bg-background/95 backdrop-blur-xl transition-all duration-300 lg:block",
-          isCollapsed ? "w-[68px]" : "w-[240px]",
-          className
-        )}
-      >
-        <SidebarContent collapsed={isCollapsed} />
-      </aside>
+      <div>
+        <SidebarSkeletonSection itemCount={3} collapsed={collapsed} />
+      </div>
+      <div>
+        <div className="mx-2 mb-7 h-px bg-white/5" />
+        <SidebarSkeletonSection hasTitle itemCount={4} collapsed={collapsed} />
+      </div>
+      <div>
+        <div className="mx-2 mb-7 h-px bg-white/5" />
+        <SidebarSkeletonSection hasTitle itemCount={3} collapsed={collapsed} />
+      </div>
     </>
   );
 }
 
-export { SidebarContent };
+function SidebarDesktop() {
+  const pathname = usePathname();
+  const { isCollapsed } = useSidebar();
+  const [isHovered, setIsHovered] = useState(false);
+
+  const { data: guide, isLoading, error } = useYouTubeGuide();
+  
+
+
+  // Width is expanded if (not collapsed) OR (collapsed AND hovered)
+  const isEffectivelyExpanded = !isCollapsed || isHovered;
+
+  // Fallback to hardcoded nav if API fails or returns no data
+  const shouldUseFallback = error || (!isLoading && (!guide?.sections || guide.sections.length === 0));
+  
+  if (shouldUseFallback && process.env.NODE_ENV === "development") {
+    console.warn("[Sidebar] API error or empty data, using fallback nav items", error);
+  }
+
+  const dynamicSections = useMemo(() => {
+    return shouldUseFallback
+      ? [
+          { title: undefined, items: PRIMARY_NAV },
+          { title: "Explore", items: FALLBACK_NAV },
+          { title: "Personal", items: PERSONAL_NAV },
+        ]
+      : guide?.sections
+          ?.map(section => ({
+            title: section.title ?? undefined,
+            items: section.items
+              .filter(item => item.title && item.title.trim() !== "")
+              .map(item => ({
+                href: item.url,
+                label: item.title,
+                icon: getIcon(item.iconType, item.title),
+                thumbnail: item.thumbnail
+              }))
+          }))
+          .filter(section => section.items.length > 0) || [];
+  }, [shouldUseFallback, guide]);
+
+  useEffect(() => {
+    (window as any).SIDEBAR_LOG = { guide, isLoading, error, dynamicSections, shouldUseFallback };
+  }, [guide, isLoading, error, dynamicSections, shouldUseFallback]);
+
+  return (
+    <motion.aside
+      initial={false}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      animate={{ width: isEffectivelyExpanded ? DESKTOP_WIDTH_EXPANDED : DESKTOP_WIDTH_COLLAPSED }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className="fixed left-0 top-0 z-40 hidden h-screen border-r border-white/10 bg-background/70 backdrop-blur-xl lg:flex lg:flex-col"
+      aria-label="Desktop navigation"
+    >
+      <div className={cn("flex h-16 items-center", !isEffectivelyExpanded ? "justify-center px-2" : "justify-between px-4") }>
+        <Link
+          href="/"
+          className={cn(
+            "group flex items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+            !isEffectivelyExpanded ? "justify-center" : "gap-2.5"
+          )}
+          aria-label="Go to homepage"
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-lg shadow-violet-500/20">
+            <svg viewBox="0 0 40 40" className="h-4 w-4" fill="none" aria-hidden="true">
+              <path
+                d="M10 30V10L20 22L30 10V30"
+                stroke="white"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+          {isEffectivelyExpanded ? <span className="text-base font-semibold tracking-tight">Vidiony</span> : null}
+        </Link>
+      </div>
+
+      <nav className="flex-1 space-y-7 overflow-y-auto px-2 pb-4 pt-3 scrollbar-none" aria-label="Main navigation links">
+        {isLoading ? (
+          <SidebarSkeleton collapsed={!isEffectivelyExpanded} />
+        ) : (
+          dynamicSections.map((section, idx) => (
+            <div key={idx + (section.title || "main")}>
+              {idx > 0 && <div className="mx-2 mb-7 h-px bg-white/5" />}
+              <SidebarSection title={section.title} items={section.items} pathname={pathname} collapsed={!isEffectivelyExpanded} />
+            </div>
+          ))
+        )}
+      </nav>
+
+      <div className="mt-auto border-t border-white/5 p-2">
+        <SidebarSection items={FOOTER_NAV} pathname={pathname} collapsed={!isEffectivelyExpanded} />
+      </div>
+    </motion.aside>
+  );
+}
+
+function MobileBottomNav() {
+  const pathname = usePathname();
+
+  return (
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-background/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
+      aria-label="Mobile bottom navigation"
+    >
+      <ul className="grid grid-cols-4">
+        {MOBILE_NAV.map((item) => {
+          const active = isActive(item, pathname);
+          const Icon = item.icon;
+
+          return (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className="group flex min-h-14 min-w-11 flex-col items-center justify-center gap-1 py-2 text-[11px]"
+              >
+                <motion.span
+                  whileTap={{ scale: 0.94 }}
+                  className={cn(
+                    "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+                    active ? "bg-primary/20 text-primary" : "text-foreground/65 group-hover:text-foreground"
+                  )}
+                >
+                  <Icon className="h-4.5 w-4.5" />
+                </motion.span>
+                <span className={cn("font-medium transition-colors", active ? "text-primary" : "text-foreground/65 group-hover:text-foreground")}>{item.label}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+function useSidebarShortcuts(toggle: () => void, navigate: (path: string) => void) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTyping = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
+      if (isTyping) return;
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
+        event.preventDefault();
+        toggle();
+      }
+
+      if (event.key.toLowerCase() === "g") {
+        const onSecondKey = (second: KeyboardEvent) => {
+          const key = second.key.toLowerCase();
+          if (key === "h") navigate("/");
+          if (key === "t") navigate("/trending");
+          if (key === "s") navigate("/subscriptions");
+          if (key === "l") navigate("/library");
+          window.removeEventListener("keydown", onSecondKey, true);
+        };
+
+        window.addEventListener("keydown", onSecondKey, true);
+        window.setTimeout(() => {
+          window.removeEventListener("keydown", onSecondKey, true);
+        }, 1000);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [navigate, toggle]);
+}
+
+export function Sidebar({ className }: { className?: string }) {
+  const router = useRouter();
+  const { toggle } = useSidebar();
+
+  useSidebarShortcuts(toggle, (path) => router.push(path));
+
+  return (
+    <div className={className}>
+      <SidebarDesktop />
+      <MobileBottomNav />
+    </div>
+  );
+}
+
+export function SidebarContent({ onClose }: { onClose?: () => void }) {
+  const pathname = usePathname();
+  const { data: guide, isLoading, error } = useYouTubeGuide();
+
+  // Fallback to hardcoded nav if API fails or returns no data
+  const shouldUseFallback = error || (!isLoading && (!guide?.sections || guide.sections.length === 0));
+  
+  if (shouldUseFallback && process.env.NODE_ENV === "development") {
+    console.warn("[SidebarContent] API error or empty data, using fallback nav items", error);
+  }
+
+  const dynamicSections = useMemo(() => {
+    return shouldUseFallback
+      ? [
+          { title: undefined, items: PRIMARY_NAV },
+          { title: "Explore", items: FALLBACK_NAV },
+          { title: "Personal", items: PERSONAL_NAV },
+        ]
+      : guide?.sections
+          ?.map(section => ({
+            title: section.title ?? undefined,
+            items: section.items
+              .filter(item => item.title && item.title.trim() !== "")
+              .map(item => ({
+                href: item.url,
+                label: item.title,
+                icon: getIcon(item.iconType, item.title),
+                thumbnail: item.thumbnail
+              }))
+          }))
+          .filter(section => section.items.length > 0) || [];
+  }, [shouldUseFallback, guide]);
+
+  return (
+    <div className="h-full overflow-y-auto bg-background/95 p-3">
+      <div className="mb-3 flex h-12 items-center px-2">
+        <Link
+          href="/"
+          onClick={onClose}
+          className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600">
+            <svg viewBox="0 0 40 40" className="h-4 w-4" fill="none" aria-hidden="true">
+              <path
+                d="M10 30V10L20 22L30 10V30"
+                stroke="white"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+          <span>Vidiony</span>
+        </Link>
+      </div>
+
+      <nav className="space-y-6" aria-label="Mobile menu">
+        {isLoading ? (
+          <SidebarSkeleton collapsed={false} />
+        ) : (
+          dynamicSections.map((section, idx) => (
+            <div key={idx + (section.title || "main")}>
+              {idx > 0 && <div className="mx-2 mb-6 h-px bg-white/5" />}
+              <SidebarSection title={section.title} items={section.items} pathname={pathname} collapsed={false} onNavigate={onClose} />
+            </div>
+          ))
+        )}
+        <div className="mx-2 h-px bg-white/5" />
+        <SidebarSection items={FOOTER_NAV} pathname={pathname} collapsed={false} onNavigate={onClose} />
+      </nav>
+    </div>
+  );
+}

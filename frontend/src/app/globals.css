@@ -8,7 +8,7 @@
 
 :root {
   /* Design System Colors - Dark Mode (OLED) */
-  --primary: #0F172A; /* Dark slate */
+  --primary: #8B5CF6; /* Vibrant Violet */
   --secondary: #1E293B; /* Secondary slate */
   --cta: #22C55E; /* Success green */
   --background: #020617; /* Near black */
@@ -46,8 +46,8 @@
   --radius-xl: 20px;
 
   /* Theme colors for shadcn/ui */
-  --primary: oklch(0.129 0.042 264.695);
-  --primary-foreground: oklch(0.984 0.003 247.858);
+  --primary: oklch(0.707 0.165 254.624);
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.279 0.041 260.031);
   --secondary-foreground: oklch(0.984 0.003 247.858);
   --muted: oklch(0.279 0.041 260.031);

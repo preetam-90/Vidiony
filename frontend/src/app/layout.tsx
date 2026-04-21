@@ -4,6 +4,7 @@ import { Providers } from "./providers";
 import { GlobalPlayer } from "@/components/player/GlobalPlayer";
 import { Toaster } from "@/components/ui/sonner";
 import { SidebarProvider } from "@/contexts/sidebar-context";
+import OfflineGuard from "@/components/offline/OfflineGuard";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -47,7 +48,9 @@ export default function RootLayout({
           </div>
           <Providers>
             <SidebarProvider>
-              {children}
+              <OfflineGuard>
+                {children}
+              </OfflineGuard>
             </SidebarProvider>
             {/* GlobalPlayer lives outside the page tree so it never unmounts.
                 The <video> element persists across all navigations, enabling

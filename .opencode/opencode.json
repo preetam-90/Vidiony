@@ -1,0 +1,11 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "permission": {
+    "read": {
+      "/home/preetam/Downloads/Vidiony/.opencode/get-shit-done/*": "allow"
+    },
+    "external_directory": {
+      "/home/preetam/Downloads/Vidiony/.opencode/get-shit-done/*": "allow"
+    }
+  }
+}

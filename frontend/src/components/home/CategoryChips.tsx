@@ -62,7 +62,7 @@ export function CategoryChips({
   };
 
   return (
-    <div className="sticky top-14 z-40 -mx-4 bg-[#09090b]/90 px-4 backdrop-blur-2xl lg:-mx-8 lg:px-8">
+    <div className="sticky top-16 z-30 bg-[#09090b]/90 backdrop-blur-2xl">
       {/* Top edge line */}
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
 

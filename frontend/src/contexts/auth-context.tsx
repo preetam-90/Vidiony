@@ -14,13 +14,6 @@ interface AuthState {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: {
-    email: string;
-    username: string;
-    password: string;
-    name?: string;
-  }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -30,6 +23,7 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const isAuthenticated = !!user;
 
   const refreshUser = useCallback(async () => {
     setIsLoading(true);
@@ -59,19 +53,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser();
   }, [refreshUser]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const { user } = await api.auth.login({ email, password });
-    setUser(user);
-  }, []);
-
-  const register = useCallback(
-    async (data: { email: string; username: string; password: string; name?: string }) => {
-      const { user } = await api.auth.register(data);
-      setUser(user);
-    },
-    []
-  );
-
   const logout = useCallback(async () => {
     try {
       await api.auth.logout();
@@ -79,14 +60,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && !user?.youtubeChannelId) {
+      logout();
+    }
+  }, [isAuthenticated, isLoading, logout, user?.youtubeChannelId]);
+
   return (
     <AuthContext.Provider
       value={{
         user,
         isLoading,
-        isAuthenticated: !!user,
-        login,
-        register,
+        isAuthenticated,
         logout,
         refreshUser,
       }}

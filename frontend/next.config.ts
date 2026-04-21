@@ -19,6 +19,16 @@ const nextConfig: NextConfig = {
   // and the proxy URL returned by the stream endpoint works without modification.
   async rewrites() {
     return [
+      // User routes (profile, avatar, etc.)
+      {
+        source: "/user/:path*",
+        destination: `${BACKEND}/user/:path*`,
+      },
+      // Auth routes
+      {
+        source: "/auth/:path*",
+        destination: `${BACKEND}/auth/:path*`,
+      },
       // ⚠️ More specific rules FIRST — /api/v2/* must come before /api/*
       // All new backend routes (auth, search, trending, videos, user, live, channels)
       {

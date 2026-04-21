@@ -188,7 +188,7 @@ export function LiveChat({ videoId, className }: LiveChatProps) {
 
       {/* Input */}
       <div className="border-t border-white/5 p-3">
-        {isAuthenticated && user?.youtubeConnected ? (
+        {isAuthenticated && user?.youtubeChannelId ? (
           <div className="flex gap-2">
             <Input
               value={inputText}

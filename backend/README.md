@@ -71,19 +71,20 @@ YTDLP_PATH=yt-dlp
 ```
 GET  /health          → system status (database, redis, youtube_api)
 GET  /metrics         → Prometheus metrics
+GET  /docs            → Swagger UI (OpenAPI documentation)
 ```
 
 ### Authentication (`/auth`)
 ```
-POST /auth/register              → Create Vidion account
-POST /auth/login                 → Login, get JWT + refresh cookie
+GET  /auth/google                → Start Google OAuth login (includes YouTube scopes)
+GET  /auth/google/callback       → OAuth callback, creates session cookies
 POST /auth/refresh               → Rotate refresh token → new JWT
 POST /auth/logout                → Invalidate session
+POST /auth/logout-all            → Invalidate all sessions
 GET  /auth/me                    → Current user (JWT required)
-POST /auth/youtube/connect       → Get YouTube OAuth2 URL
-GET  /auth/youtube/callback      → OAuth2 callback (handles redirect)
-POST /auth/youtube/disconnect    → Remove YouTube connection
-GET  /auth/youtube/status        → YouTube connection status
+GET  /auth/sessions              → List active sessions
+DELETE /auth/session/:id         → Revoke one session
+DELETE /auth/sessions            → Revoke all sessions
 ```
 
 ### Videos (`/videos`)
@@ -168,17 +169,13 @@ GET  /proxy/stream?url=...       → CORS-safe YouTube CDN proxy (for <video> el
 
 ## Authentication Flow
 
-### Dual Auth Model
+### Single Auth Model
 
-**Vidion Account** (anonymous browsing):
-- Register/login with email + password
+**Google OAuth only**:
+- Sign in once with Google (YouTube scopes requested in same consent screen)
 - JWT access token (15 min) + httpOnly refresh token cookie (7 days)
-- Can: browse, search, watch, download, track watch history
-
-**YouTube Connected Account**:
-- Link existing YouTube account via OAuth2
-- Tokens encrypted with AES-256-GCM and stored in DB
-- Can: like, comment, subscribe, manage playlists, live chat
+- YouTube tokens encrypted with AES-256-GCM and stored in DB on login
+- If YouTube permissions are denied, login is rejected with `YOUTUBE_PERMISSIONS_REQUIRED`
 
 ### WebSocket Live Chat
 

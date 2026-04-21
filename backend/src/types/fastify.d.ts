@@ -11,7 +11,6 @@ export interface JWTPayload {
   id: string;
   email: string;
   username: string;
-  youtubeConnected: boolean;
 }
 
 declare module "@fastify/jwt" {
@@ -39,11 +38,6 @@ declare module "fastify" {
      * `request.user` will be null if the token is absent/invalid.
      */
     optionalAuthenticate: (request: import("fastify").FastifyRequest, reply: import("fastify").FastifyReply) => Promise<void>;
-    /**
-     * Prehandler that requires a connected YouTube account.
-     * Throws 403 if the user is not authenticated or has no YouTube connection.
-     */
-    requireYouTube: (request: import("fastify").FastifyRequest, reply: import("fastify").FastifyReply) => Promise<void>;
   }
 
   interface FastifyRequest {

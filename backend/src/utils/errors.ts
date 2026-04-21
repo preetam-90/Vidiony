@@ -75,7 +75,7 @@ export class VideoNotFoundError extends YouTubeError {
 export class YouTubeAuthRequired extends AppError {
   constructor(action: string) {
     super(
-      `A connected YouTube account is required to ${action}. Connect via /auth/youtube/connect`,
+      `A connected YouTube account is required to ${action}. Sign in with Google and grant YouTube permissions.`,
       403,
       "YOUTUBE_AUTH_REQUIRED"
     );

@@ -224,7 +224,6 @@ export interface AuthUser {
   name: string | null;
   avatar: string | null;
   verified: boolean;
-  youtubeConnected: boolean;
   youtubeChannelId?: string | null;
   youtubeHandle?: string | null;
 }
@@ -357,13 +356,33 @@ export interface YTNotification {
   isRead: boolean;
 }
 
+export interface GuideItem {
+  id: string;
+  title: string;
+  url: string;
+  iconType: string;
+  thumbnail?: string;
+}
+
+export interface GuideSection {
+  title: string | null;
+  items: GuideItem[];
+}
+
+export interface GuideData {
+  sections: GuideSection[];
+}
+
 // ─── API object ────────────────────────────────────────────────────────────────
 
 export const api = {
   // ── Legacy /api/yt routes (always available, no auth needed) ──────────────
 
   getFeed: (page = 1, limit = 8) =>
-    yt<{ videos: VideoCardData[] }>(`/feed?page=${page}&limit=${limit}`),
+    fetcher<{ videos: VideoCardData[] }>("", `/api/feed?page=${page}&limit=${limit}`),
+
+  getGuide: () =>
+    yt<GuideData>("/guide"),
 
   search: (q: string) =>
     yt<{ videos: VideoCardData[] }>(`/search?q=${encodeURIComponent(q)}`),
@@ -410,20 +429,6 @@ export const api = {
   // ── Auth (/api/v2/auth) ────────────────────────────────────────────────────
 
   auth: {
-    register: (body: { email: string; username: string; password: string; name?: string }) =>
-      v2<{ user: AuthUser }>("/auth/register", {
-        method: "POST",
-        body: JSON.stringify(body),
-        skipAuth: true,
-      }),
-
-    login: (body: { email: string; password: string }) =>
-      v2<{ user: AuthUser }>("/auth/login", {
-        method: "POST",
-        body: JSON.stringify(body),
-        skipAuth: true,
-      }),
-
     refresh: () =>
       v2<{ success: boolean }>("/auth/refresh", { method: "POST", skipAuth: true }),
 
@@ -433,20 +438,9 @@ export const api = {
     me: () =>
       v2<{ user: AuthUser }>("/auth/me"),
 
-    youtubeStatus: () =>
-      v2<{ connected: boolean; channelId: string | null; channelName: string | null }>(
-        "/auth/youtube/status"
-      ),
-
-    youtubeConnectUrl: () =>
-      v2<{ url: string }>("/auth/youtube/connect", { method: "POST" }),
-
     /** Returns the backend Google OAuth URL (profile + YouTube scopes) */
     googleLoginUrl: () =>
       `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"}/auth/google`,
-
-    youtubeDisconnect: () =>
-      v2<{ success: boolean }>("/auth/youtube/disconnect", { method: "POST" }),
 
     // ── Session management
     getSessions: () => v2<{ sessions: Array<{ id: string; ipAddress?: string | null; userAgent?: string | null; createdAt: string; expiresAt: string; lastUsedAt?: string | null }> }>("/auth/sessions"),
@@ -477,8 +471,9 @@ export const api = {
   // ── Trending (/api/v2/trending) ────────────────────────────────────────────
 
   getTrending: (category = "trending", region = "US") =>
-    v2<{ videos: TrendingVideo[]; category: string; cachedAt: string | null }>(
-      `/trending?category=${category}&region=${region}`,
+    fetcher<{ videos: TrendingVideo[]; category: string; cachedAt: string | null }>(
+      "",
+      `/api/trending?category=${category}&region=${region}`,
       { skipAuth: true }
     ),
 
@@ -636,6 +631,10 @@ export const api = {
     /** Subscribed channels list from YouTube */
     getYouTubeSubscriptions: () =>
       v2<{ subscriptions: YTSubscription[] }>("/user/youtube/subscriptions"),
+
+    /** Check if user is subscribed to a specific YouTube channel */
+    getYouTubeSubscriptionStatus: (channelId: string) =>
+      v2<{ success: boolean; subscribed: boolean }>(`/user/youtube/subscriptions/${channelId}/status`),
 
     /** Latest videos from subscribed channels */
     getYouTubeFeed: () =>

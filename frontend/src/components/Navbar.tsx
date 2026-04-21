@@ -27,7 +27,7 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/auth-context";
 import { useSidebar } from "@/contexts/sidebar-context";
-import { SidebarContent } from "./layout/sidebar";
+import { SidebarContent } from "@/components/layout/sidebar";
 
 // ── Recent searches (persisted in localStorage) ─────────────────────────
 function getRecentSearches(): string[] {

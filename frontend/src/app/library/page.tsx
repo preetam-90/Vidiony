@@ -100,10 +100,7 @@ function timeAgo(ms: number) {
 
 function ConnectYouTubeCTA({ title, description }: { title: string; description: string }) {
   const handleConnect = async () => {
-    try {
-      const { url } = await api.auth.youtubeConnectUrl();
-      window.location.href = url;
-    } catch { toast.error("Could not start YouTube connection"); }
+    window.location.href = "/auth/login?error=YOUTUBE_PERMISSIONS_REQUIRED";
   };
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
@@ -439,13 +436,10 @@ export default function LibraryPage() {
   const { isAuthenticated, user, isLoading: authLoading } = useAuth();
   const { isCollapsed } = useSidebar();
   const sidebarPadding = isCollapsed ? "lg:pl-[72px]" : "lg:pl-[248px]";
-  const ytConnected = !!user?.youtubeConnected;
+  const ytConnected = !!user?.youtubeChannelId;
 
   const handleConnectYT = async () => {
-    try {
-      const { url } = await api.auth.youtubeConnectUrl();
-      window.location.href = url;
-    } catch { toast.error("Could not start YouTube connection"); }
+    window.location.href = "/auth/login?error=YOUTUBE_PERMISSIONS_REQUIRED";
   };
 
   return (

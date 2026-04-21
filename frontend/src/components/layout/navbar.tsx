@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Search, Menu, User, LogIn,
+  Search, Menu, LogIn,
   Home, TrendingUp, Clock, Library, LogOut,
-  Youtube, ChevronDown, History, BookMarked,
-  CheckCircle, X, Settings,
+  History, BookMarked,
+  Settings,
 } from "lucide-react";
 import { Logo } from "@/components/layout/logo";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,8 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/auth-context";
 import { useSidebar } from "@/contexts/sidebar-context";
 import { api } from "@/lib/api";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
+import { resolveURL } from "@/lib/utils";
 
 const navLinks = [
   { href: "/", label: "Home", icon: Home },
@@ -42,7 +43,6 @@ export function Navbar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [ytStatus, setYtStatus] = useState<{ connected: boolean; channelName: string | null } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -57,15 +57,6 @@ export function Navbar() {
     window.addEventListener("popstate", sync);
     return () => window.removeEventListener("popstate", sync);
   }, [pathname]);
-
-  // Fetch YouTube status when user changes
-  useEffect(() => {
-    if (isAuthenticated) {
-      api.auth.youtubeStatus().then(setYtStatus).catch(() => {});
-    } else {
-      setYtStatus(null);
-    }
-  }, [isAuthenticated]);
 
   // Autocomplete
   useEffect(() => {
@@ -110,13 +101,6 @@ export function Navbar() {
     router.push("/");
   };
 
-  const handleYouTubeConnect = async () => {
-    try {
-      const { url } = await api.auth.youtubeConnectUrl();
-      window.location.href = url;
-    } catch {}
-  };
-
   const userInitials = user?.name
     ? user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
     : user?.username?.[0]?.toUpperCase() ?? "U";
@@ -148,6 +132,20 @@ export function Navbar() {
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                onPaste={(e) => {
+                  const pasted = e.clipboardData.getData("text");
+                  const resolved = resolveURL(pasted);
+                  if (resolved) {
+                    e.preventDefault();
+                    if (resolved.type === "video") {
+                      router.push(`/watch/${resolved.id}`);
+                    } else if (resolved.type === "channel") {
+                      router.push(`/channel/${resolved.id}`);
+                    } else if (resolved.type === "playlist") {
+                      router.push(`/playlist?list=${resolved.id}`);
+                    }
+                  }
+                }}
                 className="w-full rounded-full bg-secondary/50 pl-10 pr-4 placeholder:text-muted-foreground focus:bg-secondary/80"
                 autoComplete="off"
               />
@@ -194,25 +192,6 @@ export function Navbar() {
                       <span className="text-xs text-muted-foreground">{user?.email}</span>
                     </div>
                   </DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-white/10" />
-
-                  {/* YouTube connection status */}
-                  {ytStatus?.connected ? (
-                    <DropdownMenuItem className="gap-2 text-green-400">
-                      <CheckCircle className="h-4 w-4" />
-                      <div className="flex-1">
-                        <div className="text-xs font-medium">YouTube Connected</div>
-                        {ytStatus.channelName && (
-                          <div className="text-xs text-muted-foreground">{ytStatus.channelName}</div>
-                        )}
-                      </div>
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem className="gap-2 text-muted-foreground" onClick={handleYouTubeConnect}>
-                      <Youtube className="h-4 w-4 text-red-500" />
-                      Connect YouTube account
-                    </DropdownMenuItem>
-                  )}
                   <DropdownMenuSeparator className="bg-white/10" />
 
                   <DropdownMenuItem asChild>
@@ -292,12 +271,6 @@ export function Navbar() {
                 {isAuthenticated && (
                   <>
                     <div className="my-2 h-px bg-white/10" />
-                    {ytStatus && !ytStatus.connected && (
-                      <button onClick={handleYouTubeConnect}
-                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors">
-                        <Youtube className="h-4 w-4 text-red-500" /> Connect YouTube
-                      </button>
-                    )}
                     <button onClick={handleLogout}
                       className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors">
                       <LogOut className="h-4 w-4" /> Sign Out

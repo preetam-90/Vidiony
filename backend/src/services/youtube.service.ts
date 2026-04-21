@@ -118,6 +118,23 @@ export interface ChannelInfo {
   videoCount: string;
 }
 
+export interface GuideItem {
+  id: string;
+  title: string;
+  url: string;
+  iconType: string;
+  thumbnail?: string;
+}
+
+export interface GuideSection {
+  title: string | null;
+  items: GuideItem[];
+}
+
+export interface GuideData {
+  sections: GuideSection[];
+}
+
 export interface CommentData {
   id: string;
   text: string;
@@ -167,6 +184,21 @@ function getThumbnails(item: unknown): VideoThumbnail[] {
     width: t.width ?? 0,
     height: t.height ?? 0,
   }));
+}
+
+function getChannelBannerCandidates(header: unknown): unknown[] {
+  const candidates = [
+    getNestedValue(header, ["banner", "thumbnails"]),
+    getNestedValue(header, ["banner"]),
+    getNestedValue(header, ["mobile_banner", "thumbnails"]),
+    getNestedValue(header, ["mobile_banner"]),
+    getNestedValue(header, ["tv_banner", "thumbnails"]),
+    getNestedValue(header, ["tv_banner"]),
+    getNestedValue(header, ["content", "banner", "image"]),
+    getNestedValue(header, ["content", "banner", "thumbnails"]),
+  ];
+
+  return candidates.find(Array.isArray) ?? [];
 }
 
 function getNestedValue(source: unknown, path: Array<string | number>): unknown {
@@ -296,6 +328,47 @@ export async function search(query: string): Promise<VideoCardData[]> {
 export async function getSearchSuggestions(query: string): Promise<string[]> {
   const yt = await getInnertube();
   return yt.getSearchSuggestions(query);
+}
+
+export interface NotificationData {
+  id: string;
+  title: string;
+  sentAt: string;
+  videoId: string | null;
+  thumbnail: string | null;
+  channelName: string;
+  isRead: boolean;
+}
+
+export async function getNotifications(): Promise<{ notifications: NotificationData[]; unseenCount: number }> {
+  const cacheKey = "yt:notifications";
+  const cached = await getCachedData<{ notifications: NotificationData[]; unseenCount: number }>(cacheKey);
+  if (cached) return cached;
+
+  const yt = await getInnertube();
+  const notificationsMenu = await yt.getNotifications();
+  const unseenCount = await yt.getUnseenNotificationsCount();
+
+  const notifications: NotificationData[] = [];
+  for (const n of (notificationsMenu as any).notifications ?? []) {
+    const item = n.notificationRenderer ?? n;
+    const videoId = item.shortVideoId ?? item.command?.entityId?.replace("ytfictalk:", "") ?? null;
+    const thumb = item.thumbnail?.thumbnails?.[0]?.url ?? item.image?.thumbnails?.[0]?.url ?? null;
+
+    notifications.push({
+      id: item.notificationId ?? "",
+      title: item.shortMessage?.simpleText?.text ?? item.shortMessage ?? item.longMessage?.simpleText?.text ?? "",
+      sentAt: item.sentTimeText?.text ?? item.sentTimeText ?? "",
+      videoId,
+      thumbnail: thumb,
+      channelName: item.channelName?.simpleText?.text ?? item.channelName ?? item.author ?? "",
+      isRead: !item.newThumbnail,
+    });
+  }
+
+  const result = { notifications, unseenCount };
+  await setCachedData(cacheKey, result, 60);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -589,8 +662,8 @@ export async function getRelatedVideos(videoId: string): Promise<VideoCardData[]
   if (cached) return cached;
 
   const yt = await getInnertube();
-  const info = await yt.getInfo(videoId);
-  const related: any[] = (info as any).related_videos ?? (info as any).watch_next_feed ?? [];
+  const info = await yt.getBasicInfo(videoId);
+  const related: any[] = (info as any).related_videos ?? [];
 
   const videos: VideoCardData[] = (Array.isArray(related) ? related : [])
     .filter((item: any) => getVideoId(item))
@@ -721,7 +794,7 @@ export async function getChannelInfo(channelId: string): Promise<ChannelInfo> {
     name: getText(channel.metadata?.title ?? (channel as any).title),
     description: getText(channel.metadata?.description),
     thumbnails: getThumbnails(channel.metadata?.thumbnail ?? []),
-    banners: getThumbnails((channel as any).header?.banner?.thumbnails ?? []),
+    banners: getThumbnails(getChannelBannerCandidates((channel as any).header)),
     subscriberCount: (function() {
       const s = getText(
         (channel as any).header?.c4TabbedHeader?.subscriberCount ??
@@ -737,8 +810,53 @@ export async function getChannelInfo(channelId: string): Promise<ChannelInfo> {
     videoCount: getText((channel as any).header?.videos_count ?? ""),
   };
 
-  await setCachedData(cacheKey, info, 600);
+    setCachedData(cacheKey, info, 600).catch(() => {});
   return info;
+}
+
+// ---------------------------------------------------------------------------
+
+export async function getGuide(): Promise<GuideData> {
+  const yt = await getInnertube();
+  const guide = await yt.getGuide();
+
+  // youtubei.js v16 returns "contents" as top-level instead of "sections" in some client configurations
+  const rawSections = (guide as any).contents || (guide as any).sections || [];
+
+  const sections: GuideSection[] = rawSections.map((section: any) => {
+    const rawItems = section.items || section.contents || [];
+    const items: GuideItem[] = rawItems.map((item: any) => {
+      let url = "/";
+      if (item.endpoint) {
+        const payload = item.endpoint.payload;
+        if (payload?.browseId) {
+          url = `/channel/${payload.browseId}`;
+          if (payload.browseId === "FEtrending") url = "/trending";
+          if (payload.browseId === "FEsubscriptions") url = "/subscriptions";
+          if (payload.browseId === "FElibrary") url = "/library";
+          if (payload.browseId === "FEhistory") url = "/history";
+          if (payload.browseId === "FEwhat_to_watch") url = "/";
+        } else if (payload?.videoId) {
+          url = `/watch/${payload.videoId}`;
+        }
+      }
+
+      return {
+        id: item.id || item.endpoint?.payload?.browseId || item.endpoint?.payload?.videoId || "",
+        title: getText(item.title),
+        url,
+        iconType: item.icon_type || "",
+        thumbnail: item.thumbnail?.thumbnails?.[0]?.url || undefined,
+      };
+    });
+
+    return {
+      title: getText(section.title) || null,
+      items,
+    };
+  });
+
+  return { sections };
 }
 
 // ---------------------------------------------------------------------------

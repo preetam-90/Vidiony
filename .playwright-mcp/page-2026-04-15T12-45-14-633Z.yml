@@ -1,0 +1,26 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e6]:
+      - banner [ref=e7]:
+        - generic [ref=e8]:
+          - link "Vidiony" [ref=e10] [cursor=pointer]:
+            - /url: /
+            - img [ref=e12]
+            - generic [ref=e14]: Vidiony
+          - generic [ref=e17]:
+            - img [ref=e18]
+            - searchbox "Search videos..." [ref=e21]
+          - generic [ref=e23]:
+            - link "Sign In" [ref=e24] [cursor=pointer]:
+              - /url: /auth/login
+            - link "Get Started" [ref=e25] [cursor=pointer]:
+              - /url: /auth/register
+      - main [ref=e26]:
+        - generic [ref=e28]:
+          - img [ref=e30]
+          - generic [ref=e32]:
+            - heading "Liked Videos" [level=1] [ref=e33]
+            - paragraph [ref=e34]: Videos you've liked on YouTube
+    - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e89] [cursor=pointer]:
+    - img [ref=e90]

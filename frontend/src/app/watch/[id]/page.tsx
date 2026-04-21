@@ -54,7 +54,7 @@ export default function WatchPage() {
   // Fetch channel info (subscriber count etc.) for display under the player
   const { data: channelInfo } = useChannel(video?.channelId ?? "");
   const addToHistory = useWatchHistory((s) => s.addToHistory);
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isLoading: authLoading, refreshUser } = useAuth();
   const queryClient = useQueryClient();
 
   // ─── Global player store ──────────────────────────────────────────────────
@@ -76,6 +76,47 @@ export default function WatchPage() {
   const [subscribed, setSubscribed] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [showDownload, setShowDownload] = useState(false);
+
+  const getLatestAuthUser = async () => {
+    try {
+      const { user: latestUser } = await api.auth.me();
+      return latestUser;
+    } catch {
+      try {
+        const refreshed = await api.auth.refresh();
+        if (!refreshed) return null;
+        const { user: latestUser } = await api.auth.me();
+        return latestUser;
+      } catch {
+        return null;
+      }
+    }
+  };
+
+  const promptYoutubeConnect = async () => {
+    window.location.href = "/auth/login?error=YOUTUBE_PERMISSIONS_REQUIRED";
+  };
+
+  const ensureSubscribeReady = async () => {
+    if (authLoading) {
+      await refreshUser();
+    }
+
+    const currentUser = !authLoading && isAuthenticated && user ? user : await getLatestAuthUser();
+
+    if (!currentUser) {
+      toast.info("Sign in to subscribe");
+      return false;
+    }
+
+    if (!currentUser.youtubeChannelId) {
+      toast.info("Connect YouTube to subscribe");
+      await promptYoutubeConnect();
+      return false;
+    }
+
+    return true;
+  };
 
   const { data: videoState } = useQuery({
     queryKey: ["video-state", videoId, video?.channelId],
@@ -210,10 +251,14 @@ export default function WatchPage() {
     onSuccess: () => {
       toast.success(subscribed ? "Unsubscribed" : "Subscribed!");
       queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["yt-subscriptions"] });
       queryClient.invalidateQueries({ queryKey: ["video-state", videoId, video?.channelId] });
     },
     onError: (err) => {
       setSubscribed(subscribed);
+      if (err instanceof Error && err.message.toLowerCase().includes("connect youtube")) {
+        void promptYoutubeConnect();
+      }
       toast.error(err instanceof Error ? err.message : "Failed to update subscription.");
     },
   });
@@ -499,8 +544,9 @@ export default function WatchPage() {
                     variant={subscribed ? "outline" : "default"}
                     size="sm"
                     className={`gap-2 rounded-full ${subscribed ? "border-white/20" : ""}`}
-                    onClick={() => {
-                      if (!isAuthenticated) { toast.info("Sign in to subscribe"); return; }
+                    onClick={async () => {
+                      const ready = await ensureSubscribeReady();
+                      if (!ready) return;
                       subscribeMutation.mutate();
                     }}
                     disabled={subscribeMutation.isPending}
@@ -522,7 +568,7 @@ export default function WatchPage() {
               </div>
 
               {/* Post comment */}
-              {isAuthenticated && user?.youtubeConnected && (
+              {isAuthenticated && user?.youtubeChannelId && (
                 <div className="space-y-3 rounded-xl bg-white/[0.02] border border-white/5 p-4">
                   <p className="text-sm font-medium">Add a comment</p>
                   <Textarea

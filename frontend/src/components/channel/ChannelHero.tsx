@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import Image from "next/image";
 import { ChannelInfo } from "@/lib/api";
@@ -18,8 +18,9 @@ interface ChannelHeroProps {
 }
 
 export function ChannelHero({ channel, channelId }: ChannelHeroProps) {
-  const { isAuthenticated, user } = useAuth();
-  const [subscribed, setSubscribed] = useState(false);
+  const { isAuthenticated, isLoading: authLoading, refreshUser, user } = useAuth();
+  const queryClient = useQueryClient();
+  const [subscribedOverride, setSubscribedOverride] = useState<boolean | null>(null);
   const [notifyOn, setNotifyOn] = useState(false);
   const [showSubMenu, setShowSubMenu] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
@@ -37,20 +38,79 @@ export function ChannelHero({ channel, channelId }: ChannelHeroProps) {
     bannerUrl: computedBannerUrl,
   });
 
+  const { data: subscriptionStatus } = useQuery({
+    queryKey: ["yt-subscription-status", channel.id],
+    queryFn: () => api.user.getYouTubeSubscriptionStatus(channel.id),
+    enabled: !authLoading && !!isAuthenticated && !!user?.youtubeChannelId,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const serverSubscribed = subscriptionStatus?.subscribed ?? false;
+  const subscribed = subscribedOverride ?? serverSubscribed;
+
+  const promptYoutubeConnect = async () => {
+    window.location.href = "/auth/login?error=YOUTUBE_PERMISSIONS_REQUIRED";
+  };
+
+  const getLatestAuthUser = async () => {
+    try {
+      const { user: latestUser } = await api.auth.me();
+      return latestUser;
+    } catch {
+      try {
+        const refreshed = await api.auth.refresh();
+        if (!refreshed) return null;
+        const { user: latestUser } = await api.auth.me();
+        return latestUser;
+      } catch {
+        return null;
+      }
+    }
+  };
+
+  const ensureSubscribeReady = async () => {
+    if (authLoading) {
+      await refreshUser();
+    }
+
+    const currentUser = !authLoading && isAuthenticated && user ? user : await getLatestAuthUser();
+
+    if (!currentUser) {
+      toast.info("Sign in to subscribe");
+      return false;
+    }
+
+    if (!currentUser.youtubeChannelId) {
+      toast.info("Connect YouTube to subscribe");
+      await promptYoutubeConnect();
+      return false;
+    }
+
+    return true;
+  };
+
   const subscribeMutation = useMutation({
     mutationFn: () =>
-      subscribed ? api.user.unsubscribe(channelId) : api.user.subscribe(channelId),
+      subscribed ? api.user.unsubscribe(channel.id) : api.user.subscribe(channel.id),
     onMutate: () => {
       const previous = subscribed;
-      setSubscribed(!previous);
+      setSubscribedOverride(!previous);
       if (previous) setNotifyOn(false);
       return { previous };
     },
-    onSuccess: (_data, _variables, context) =>
-      toast.success(context?.previous ? "Unsubscribed" : "Subscribed!"),
+    onSuccess: async (_data, _variables, context) => {
+      toast.success(context?.previous ? "Unsubscribed" : "Subscribed!");
+      await queryClient.invalidateQueries({ queryKey: ["yt-subscription-status", channel.id] });
+      await queryClient.invalidateQueries({ queryKey: ["yt-subscriptions"] });
+      setSubscribedOverride(null);
+    },
     onError: (_error, _variables, context) => {
-      if (context?.previous !== undefined) setSubscribed(context.previous);
-      toast.error("Connect your YouTube account to subscribe");
+      if (context?.previous !== undefined) setSubscribedOverride(context.previous);
+      if (_error instanceof Error && (_error.message.toLowerCase().includes("connect youtube") || _error.message.toLowerCase().includes("youtube account is required"))) {
+        void promptYoutubeConnect();
+      } else {
+        toast.error(_error instanceof Error ? _error.message : "Failed to update subscription");
+      }
     },
   });
 
@@ -68,8 +128,8 @@ export function ChannelHero({ channel, channelId }: ChannelHeroProps) {
   // Build stats array — handle · subs · videos
   const statParts = [
     handle,
-    channel.subscriberCount ? `${channel.subscriberCount} subscribers` : null,
-    channel.videoCount ? `${channel.videoCount} videos` : null,
+    channel.subscriberCount ? `${channel.subscriberCount.replace(/\s*subscribers?/i, '')} subscribers` : null,
+    channel.videoCount ? `${channel.videoCount.replace(/\s*videos?/i, '')} videos` : null,
   ].filter(Boolean) as string[];
 
   const maxDescLength = 150;
@@ -99,11 +159,11 @@ export function ChannelHero({ channel, channelId }: ChannelHeroProps) {
       {/* Channel info row */}
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">
-          {/* Avatar + info row — avatar overlaps banner by ~half */}
-          <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-5 -mt-10 sm:-mt-12 pb-4 sm:pb-5">
+          {/* Avatar + info row — avatar below banner */}
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6 pt-4 sm:pt-6 pb-4 sm:pb-5">
             {/* Avatar */}
-            <div className="flex-shrink-0 self-start sm:self-auto">
-              <div className="w-20 h-20 sm:w-28 sm:h-28 md:w-[112px] md:h-[112px] rounded-full overflow-hidden ring-2 ring-[#0f0f0f] bg-[#2a2a2a] relative">
+            <div className="flex-shrink-0 self-center sm:self-auto">
+              <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full overflow-hidden bg-[#2a2a2a] relative">
                 {avatarUrl ? (
                   <Image
                     src={avatarUrl}
@@ -222,8 +282,9 @@ export function ChannelHero({ channel, channelId }: ChannelHeroProps) {
                               </button>
                               <button
                                 className="w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 flex items-center gap-2.5"
-                                onClick={() => {
-                                  if (!isAuthenticated) { toast.info("Sign in to subscribe"); setShowSubMenu(false); return; }
+                                onClick={async () => {
+                                  const ready = await ensureSubscribeReady();
+                                  if (!ready) { setShowSubMenu(false); return; }
                                   subscribeMutation.mutate();
                                   setShowSubMenu(false);
                                 }}
@@ -236,8 +297,9 @@ export function ChannelHero({ channel, channelId }: ChannelHeroProps) {
                         </div>
                       ) : (
                         <button
-                          onClick={() => {
-                            if (!isAuthenticated) { toast.info("Sign in to subscribe"); return; }
+                          onClick={async () => {
+                            const ready = await ensureSubscribeReady();
+                            if (!ready) return;
                             subscribeMutation.mutate();
                           }}
                           disabled={subscribeMutation.isPending}

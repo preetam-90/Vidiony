@@ -1,5 +1,5 @@
 import { FastifyPluginAsync } from "fastify";
-import { getInnertube } from "../innertube.js";
+import { getInnertubeForUser } from "../services/innertube-cache.js";
 import { getCachedData, setCachedData } from "../services/cache.service.js";
 
 const homeFeedRoutes: FastifyPluginAsync = async (fastify, _opts) => {
@@ -83,26 +83,75 @@ const homeFeedRoutes: FastifyPluginAsync = async (fastify, _opts) => {
   function normalizeSection(item: any) {
     const title = getText(item.header?.title ?? item.title ?? item.sectionTitle ?? item.name ?? item.label ?? "");
 
-    // potential video containers
-    const candidates = item.contents ?? item.items ?? item.playlist ?? item.videos ?? item.items?.[0]?.contents ?? [];
-    const rawVideos: any[] = Array.isArray(candidates) ? candidates : [];
+    // Robustly collect nested video-like nodes from youtubei.js structures.
+    const rawVideos: any[] = [];
 
-    // Sometimes items are wrapped in { content } or { video } wrappers
+    function collectVideosDeep(node: any) {
+      if (!node || typeof node !== "object") return;
+
+      if (Array.isArray(node)) {
+        for (const entry of node) collectVideosDeep(entry);
+        return;
+      }
+
+      const candidate = node.content ?? node.video ?? node.item ?? node.renderer ?? node;
+      if (getVideoId(candidate)) {
+        rawVideos.push(candidate);
+      }
+
+      // Common youtubei.js nesting keys seen in HomeFeed responses
+      const nestedKeys = [
+        "contents",
+        "items",
+        "videos",
+        "playlist",
+        "entries",
+        "results",
+        "sections",
+        "tabs",
+        "shelves",
+        "rich_grid_contents",
+        "richGridRenderer",
+      ];
+
+      for (const key of nestedKeys) {
+        if (key in candidate) {
+          collectVideosDeep((candidate as any)[key]);
+        }
+      }
+
+      // Also recurse generic object props to catch unknown renderer wrappers
+      for (const value of Object.values(candidate)) {
+        if (value && typeof value === "object") {
+          collectVideosDeep(value);
+        }
+      }
+    }
+
+    collectVideosDeep(item);
+
+    // Deduplicate by video id and map
+    const seen = new Set<string>();
     const videos = rawVideos
-      .map((rv) => rv.content ?? rv.video ?? rv)
-      .filter((x) => getVideoId(x))
+      .filter((x) => {
+        const id = getVideoId(x);
+        if (!id) return false;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      })
       .map(mapToCard);
 
     return { title: title || "", videos };
   }
 
   // Main endpoint
-  fastify.get("/home-feed", { preHandler: fastify.optionalAuthenticate }, async (request, reply) => {
+  fastify.get("/home-feed", { preHandler: fastify.authenticate }, async (request, reply) => {
     const { continuation } = request.query as { continuation?: string };
-    const user = (request as any).user;
+    const user = request.user;
 
     try {
-      const yt = await getInnertube();
+      const yt = await getInnertubeForUser(fastify.prisma, user!.id);
 
       // Continuation fetch — prefer to fetch directly using the library continuation
       if (continuation) {
@@ -140,51 +189,8 @@ const homeFeedRoutes: FastifyPluginAsync = async (fastify, _opts) => {
         return reply.send({ sections, continuationToken: cont });
       }
 
-      // No continuation -> initial load
-      if (!user) {
-        // Guest user — try cached guest feed
-        const cacheKey = `home:guest`;
-        const cached = await getCachedData<any>(cacheKey);
-        if (cached) {
-          reply.header("Cache-Control", "public, s-maxage=600, stale-while-revalidate=1200");
-          return reply.send(cached);
-        }
-
-        // Fetch trending + a few supplementary searches to create sections
-        const sections: any[] = [];
-
-        try {
-          const trending = await yt.getTrending();
-          const trendingVideos = (trending.videos ?? []).map((v: any) => mapToCard(v)).filter((v: any) => v.id);
-          if (trendingVideos.length) sections.push({ title: "Trending", videos: trendingVideos });
-        } catch (e) {
-          fastify.log.warn("getTrending failed:", (e as any)?.message);
-        }
-
-        try {
-          const music = await yt.search("music hits 2025");
-          const mv = (music.results ?? []).map((v: any) => mapToCard(v)).filter((v: any) => v.id);
-          if (mv.length) sections.push({ title: "Music", videos: mv.slice(0, 12) });
-        } catch (e) {
-          fastify.log.warn("music search failed:", (e as any)?.message);
-        }
-
-        try {
-          const news = await yt.search("latest news 2025");
-          const nv = (news.results ?? []).map((v: any) => mapToCard(v)).filter((v: any) => v.id);
-          if (nv.length) sections.push({ title: "News", videos: nv.slice(0, 12) });
-        } catch (e) {
-          fastify.log.warn("news search failed:", (e as any)?.message);
-        }
-
-        const result = { sections, continuationToken: findContinuation(sections) ?? null };
-        await setCachedData(cacheKey, result, 600);
-        reply.header("Cache-Control", "public, s-maxage=600, stale-while-revalidate=1200");
-        return reply.send(result);
-      }
-
       // Logged-in Vidion user — personalized feed
-      const cacheKey = `home:user:${user.id}`;
+      const cacheKey = `home:user:${user!.id}`;
       const cachedUser = await getCachedData<any>(cacheKey);
       if (cachedUser) {
         reply.header("Cache-Control", "private, s-maxage=120");

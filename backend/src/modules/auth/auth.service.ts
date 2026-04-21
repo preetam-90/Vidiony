@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import type { FastifyInstance } from "fastify";
 import { env } from "../../config/env.js";
-import { ConflictError, AuthError, NotFoundError } from "../../utils/errors.js";
+import { AuthError, NotFoundError } from "../../utils/errors.js";
 import { encryptJson, decryptJson } from "../../utils/crypto.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -38,64 +38,14 @@ function generateRefreshToken(): string {
   return randomBytes(40).toString("hex");
 }
 
-// ─── Registration ─────────────────────────────────────────────────────────────
-
-export async function registerUser(
-  prisma: PrismaClient,
-  { email, username, password, name }: { email: string; username: string; password: string; name?: string }
-) {
-  const existing = await prisma.user.findFirst({
-    where: { OR: [{ email }, { username }] },
-    select: { id: true, email: true, username: true },
-  });
-
-  if (existing) {
-    const field = existing.email === email ? "email" : "username";
-    throw new ConflictError(`A user with this ${field} already exists`);
-  }
-
-  const passwordHash = await bcrypt.hash(password, 12);
-
-  return prisma.user.create({
-    data: { email, username, password: passwordHash, name },
-    select: {
-      id: true, email: true, username: true, name: true,
-      avatar: true, verified: true, youtubeConnected: true, createdAt: true,
-    },
-  });
-}
-
-// ─── Login ────────────────────────────────────────────────────────────────────
-export async function loginUser(
-  prisma: PrismaClient,
-  { email, password }: { email: string; password: string }
-) {
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: {
-      id: true, email: true, username: true, name: true,
-      avatar: true, verified: true, password: true, youtubeConnected: true,
-    },
-  });
-
-  if (!user) throw new AuthError("Invalid email or password", "INVALID_CREDENTIALS");
-
-  const valid = await bcrypt.compare(password, user.password);
-  if (!valid) throw new AuthError("Invalid email or password", "INVALID_CREDENTIALS");
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { password: _pw, ...safeUser } = user;
-  return safeUser;
-}
-
 // ─── Token issuance ───────────────────────────────────────────────────────────
 
 export function issueAccessToken(
   fastify: FastifyInstance,
-  user: { id: string; email: string; username: string; youtubeConnected: boolean }
+  user: { id: string; email: string; username: string }
 ): string {
   return fastify.jwt.sign(
-    { id: user.id, email: user.email, username: user.username, youtubeConnected: user.youtubeConnected } as any,
+    { id: user.id, email: user.email, username: user.username } as any,
     { expiresIn: env.JWT_EXPIRES_IN }
   );
 }
@@ -130,7 +80,7 @@ export async function refreshAccessToken(
       user: {
         select: {
           id: true, email: true, username: true,
-          youtubeConnected: true, avatar: true,
+          avatar: true,
         },
       },
     },
@@ -206,60 +156,6 @@ export async function logoutUser(
 }
 
 // ─── YouTube OAuth2 ───────────────────────────────────────────────────────────
-
-export function getYouTubeAuthUrl(state?: string): string {
-  if (!env.YOUTUBE_CLIENT_ID || !env.YOUTUBE_CLIENT_SECRET || !env.YOUTUBE_REDIRECT_URI) {
-    throw new Error("YouTube OAuth2 credentials are not configured");
-  }
-
-  const params = new URLSearchParams({
-    client_id: env.YOUTUBE_CLIENT_ID,
-    redirect_uri: env.YOUTUBE_REDIRECT_URI,
-    response_type: "code",
-    scope: [
-      "https://www.googleapis.com/auth/youtube",
-      "https://www.googleapis.com/auth/youtube.readonly",
-      "https://www.googleapis.com/auth/youtube.force-ssl",
-    ].join(" "),
-    access_type: "offline",
-    prompt: "consent",
-    ...(state ? { state } : {}),
-  });
-
-  return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
-}
-
-export async function exchangeYouTubeCode(code: string): Promise<YouTubeTokens> {
-  if (!env.YOUTUBE_CLIENT_ID || !env.YOUTUBE_CLIENT_SECRET || !env.YOUTUBE_REDIRECT_URI) {
-    throw new Error("YouTube OAuth2 credentials are not configured");
-  }
-
-  const resp = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      code,
-      client_id: env.YOUTUBE_CLIENT_ID,
-      client_secret: env.YOUTUBE_CLIENT_SECRET,
-      redirect_uri: env.YOUTUBE_REDIRECT_URI,
-      grant_type: "authorization_code",
-    }),
-  });
-
-  if (!resp.ok) {
-    const body = await resp.text();
-    throw new AuthError(`YouTube OAuth2 exchange failed: ${body}`, "YOUTUBE_OAUTH_FAILED");
-  }
-
-  const data = (await resp.json()) as Record<string, unknown>;
-  return {
-    access_token: data.access_token as string,
-    refresh_token: data.refresh_token as string,
-    expiry_date: Date.now() + (Number(data.expires_in) || 3600) * 1000,
-    token_type: (data.token_type as string) || "Bearer",
-    scope: (data.scope as string) || "",
-  };
-}
 
 export async function refreshYouTubeToken(refreshToken: string): Promise<YouTubeTokens> {
   if (!env.YOUTUBE_CLIENT_ID || !env.YOUTUBE_CLIENT_SECRET) {
@@ -340,7 +236,10 @@ export async function getUserYouTubeTokens(
       });
       return refreshed;
     } catch {
-      return tokens; // return potentially stale token — better than nothing
+      if (tokens.expiry_date > Date.now() + 30_000) {
+        return tokens;
+      }
+      return null;
     }
   }
 
@@ -447,7 +346,7 @@ export async function findOrCreateGoogleUser(
   prisma: PrismaClient,
   profile: GoogleProfile,
   tokens: YouTubeTokens
-): Promise<{ id: string; email: string; username: string; name: string | null; avatar: string | null; verified: boolean; youtubeConnected: boolean }> {
+): Promise<{ id: string; email: string; username: string; name: string | null; avatar: string | null; verified: boolean }> {
   // Try by googleId first, then by email
   let user = await prisma.user.findFirst({
     where: { OR: [{ googleId: profile.sub }, { email: profile.email }] },
@@ -462,7 +361,19 @@ export async function findOrCreateGoogleUser(
     handle = ch.handle;
   } catch { /* non-fatal */ }
 
-  const encryptedTokens = encryptJson(tokens);
+  let effectiveTokens = tokens;
+
+  if (!effectiveTokens.refresh_token && user?.youtubeTokens) {
+    const existingTokens = decryptJson<YouTubeTokens>(user.youtubeTokens);
+    if (existingTokens?.refresh_token) {
+      effectiveTokens = {
+        ...effectiveTokens,
+        refresh_token: existingTokens.refresh_token,
+      };
+    }
+  }
+
+  const encryptedTokens = encryptJson(effectiveTokens);
 
   if (user) {
     // Update tokens and profile fields on every login
@@ -493,7 +404,7 @@ export async function findOrCreateGoogleUser(
         email: profile.email,
         username,
         // No password — Google users can't use email/password login
-        password: "",
+        password: null,
         name: profile.name,
         avatar: profile.picture ?? null,
         googleId: profile.sub,
@@ -513,6 +424,5 @@ export async function findOrCreateGoogleUser(
     name: user.name,
     avatar: user.avatar,
     verified: user.verified,
-    youtubeConnected: true,
   };
 }

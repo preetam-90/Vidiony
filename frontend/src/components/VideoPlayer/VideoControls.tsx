@@ -110,7 +110,7 @@ export function VideoControls({
           <div className="vidion-controls-group vidion-controls-group-left">
             <button
               type="button"
-              className="vidion-icon-button vidion-primary-button"
+              className="vidion-icon-button"
               onClick={onPlayPause}
               aria-label={state.isPlaying ? "Pause" : "Play"}
               title="Play/Pause (Space)"
@@ -144,9 +144,7 @@ export function VideoControls({
               onToggleMute={onMuteToggle}
               onVolumeChange={onVolumeChange}
             />
-          </div>
 
-          <div className="vidion-controls-group vidion-controls-group-center">
             <div className="vidion-time-display" aria-live="off">
               <span>{formatTime(state.currentTime)}</span>
               <span className="vidion-time-divider">/</span>

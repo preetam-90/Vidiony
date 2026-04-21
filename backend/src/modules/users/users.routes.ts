@@ -6,10 +6,9 @@
 
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { Innertube } from "youtubei.js";
 import { YouTubeAuthRequired, toErrorResponse } from "../../utils/errors.js";
 import { getUserYouTubeTokens } from "../auth/auth.service.js";
-import { env } from "../../config/env.js";
+import { getInnertubeForUser } from "../../services/innertube-cache.js";
 
 const userRoutes: FastifyPluginAsync = async (fastify) => {
   // ═══ Watch History ════════════════════════════════════════════════════════
@@ -76,7 +75,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
 
   // ═══ Subscriptions ════════════════════════════════════════════════════════
 
-  fastify.get("/subscriptions", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.get("/subscriptions", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     try {
       const token = await getYTAccessToken(req.user!.id);
       const data = await ytApi<any>("/subscriptions", token, {
@@ -99,7 +98,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.get("/subscriptions/feed", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.get("/subscriptions/feed", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     try {
       const token = await getYTAccessToken(req.user!.id);
       const data = await ytApi<any>("/activities", token, {
@@ -125,7 +124,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.post("/subscriptions/:channelId", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.post("/subscriptions/:channelId", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const { channelId } = req.params as { channelId: string };
     try {
       const token = await getYTAccessToken(req.user!.id);
@@ -152,7 +151,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.delete("/subscriptions/:channelId", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.delete("/subscriptions/:channelId", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const { channelId } = req.params as { channelId: string };
     try {
       const token = await getYTAccessToken(req.user!.id);
@@ -177,7 +176,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
 
   // ═══ Playlists ════════════════════════════════════════════════════════════
 
-  fastify.get("/playlists", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.get("/playlists", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     try {
       const yt = await getAuthenticatedInnertube(fastify, req.user!.id);
       const feed = await yt.getPlaylists();
@@ -187,7 +186,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.post("/playlists", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.post("/playlists", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const schema = z.object({
       title: z.string().min(1).max(150),
       videoIds: z.array(z.string()).default([]),
@@ -207,7 +206,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.delete("/playlists/:id", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.delete("/playlists/:id", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     try {
       const yt = await getAuthenticatedInnertube(fastify, req.user!.id);
@@ -218,7 +217,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.post("/playlists/:id/videos", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.post("/playlists/:id/videos", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const schema = z.object({ videoId: z.string().min(1) });
     const parsed = schema.safeParse(req.body);
@@ -235,7 +234,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.delete("/playlists/:id/videos/:videoId", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.delete("/playlists/:id/videos/:videoId", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const { id, videoId } = req.params as { id: string; videoId: string };
     try {
       const yt = await getAuthenticatedInnertube(fastify, req.user!.id);
@@ -344,7 +343,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
   // private and only accessible via browser cookies or YouTube TV OAuth.
   // We return Vidion's own tracked history instead (videos watched on Vidion).
 
-  fastify.get("/youtube/history", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.get("/youtube/history", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     try {
       // Vidion watch history grouped into a single "Recent" section
       const rows = await fastify.prisma.watchHistory.findMany({
@@ -384,7 +383,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
 
   // ═══ YouTube Liked Videos (playlist LL) ═══════════════════════════════════
 
-  fastify.get("/youtube/liked", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.get("/youtube/liked", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     try {
       const token = await getYTAccessToken(req.user!.id);
 
@@ -413,7 +412,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
 
   // ═══ YouTube Watch Later (playlist WL) ════════════════════════════════════
 
-  fastify.get("/youtube/watch-later", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.get("/youtube/watch-later", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     try {
       const token = await getYTAccessToken(req.user!.id);
 
@@ -442,7 +441,26 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
 
   // ═══ YouTube Subscriptions ════════════════════════════════════════════════
 
-  fastify.get("/youtube/subscriptions", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.get("/youtube/subscriptions/:channelId/status", { preHandler: [fastify.authenticate] }, async (req, reply) => {
+    const { channelId } = req.params as { channelId: string };
+    try {
+      const token = await getYTAccessToken(req.user!.id);
+      const data = await ytApi<any>("/subscriptions", token, {
+        part: "id",
+        mine: "true",
+        forChannelId: channelId,
+        maxResults: "1",
+      });
+
+      const subscribed = Array.isArray(data.items) && data.items.length > 0;
+      return reply.send({ success: true, subscribed });
+    } catch (err) {
+      fastify.log.error(err, "YouTube subscription status error");
+      return reply.status(502).send({ success: false, error: toErrorResponse(err) });
+    }
+  });
+
+  fastify.get("/youtube/subscriptions", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     try {
       const token = await getYTAccessToken(req.user!.id);
 
@@ -475,7 +493,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
 
   // ═══ YouTube Subscription Feed ════════════════════════════════════════════
 
-  fastify.get("/youtube/feed", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.get("/youtube/feed", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     try {
       const token = await getYTAccessToken(req.user!.id);
 
@@ -506,20 +524,51 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // ═══ YouTube Notifications ════════════════════════════════════════════════
-  // YouTube Data API v3 does not expose notifications — return empty gracefully
 
-  fastify.get("/youtube/notifications", { preHandler: [fastify.requireYouTube] }, async (_req, reply) => {
-    return reply.send({
-      success: true,
-      notifications: [],
-      unseenCount: 0,
-      note: "YouTube notifications are not available via the YouTube Data API v3.",
-    });
+  fastify.get("/youtube/notifications", { preHandler: [fastify.authenticate] }, async (req, reply) => {
+    try {
+      const yt = await getAuthenticatedInnertube(fastify, req.user!.id);
+      fastify.log.debug("Fetching notifications for user...");
+      const notificationsMenu = await yt.getNotifications();
+      const unseenCount = await yt.getUnseenNotificationsCount();
+      fastify.log.debug({ notificationsCount: notificationsMenu.notifications?.length, unseenCount }, "Notifications response");
+
+      const notifications: any[] = [];
+      for (const n of notificationsMenu.notifications ?? []) {
+        const item = n.notificationRenderer ?? n;
+        const videoId = item.shortVideoId ?? item.command?.entityId?.replace("ytfictalk:", "") ?? null;
+        const thumb = item.thumbnail?.thumbnails?.[0]?.url ?? item.image?.thumbnails?.[0]?.url ?? null;
+
+        notifications.push({
+          id: item.notificationId ?? "",
+          title: item.shortMessage?.simpleText?.text ?? item.shortMessage ?? item.longMessage?.simpleText?.text ?? "",
+          sentAt: item.sentTimeText?.text ?? item.sentTimeText ?? "",
+          videoId,
+          thumbnail: thumb,
+          channelName: item.channelName?.simpleText?.text ?? item.channelName ?? item.author ?? "",
+          isRead: !item.newThumbnail,
+        });
+      }
+
+      return reply.send({
+        success: true,
+        notifications,
+        unseenCount,
+      });
+    } catch (err) {
+      fastify.log.error(err, "YouTube notifications error");
+      return reply.status(500).send({
+        success: false,
+        error: "Failed to fetch notifications",
+        notifications: [],
+        unseenCount: 0,
+      });
+    }
   });
 
   // ═══ YouTube Playlists ════════════════════════════════════════════════════
 
-  fastify.get("/youtube/playlists", { preHandler: [fastify.requireYouTube] }, async (req, reply) => {
+  fastify.get("/youtube/playlists", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     try {
       const token = await getYTAccessToken(req.user!.id);
 
@@ -555,29 +604,12 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
 export async function getAuthenticatedInnertube(
   fastify: { prisma: any; log: any },
   userId: string
-): Promise<Innertube> {
-  const tokens = await getUserYouTubeTokens(fastify.prisma, userId);
-  if (!tokens) throw new YouTubeAuthRequired("perform this action");
-
-  const clientId = env.GOOGLE_CLIENT_ID || env.YOUTUBE_CLIENT_ID;
-  const clientSecret = env.GOOGLE_CLIENT_SECRET || env.YOUTUBE_CLIENT_SECRET;
-
-  // Pass a future expiry so youtubei.js never tries to refresh via YouTube TV endpoint
-  const safeExpiry = new Date(Date.now() + 55 * 60 * 1000).toISOString();
-
-  const yt = await Innertube.create();
-  await yt.session.signIn({
-    access_token: tokens.access_token,
-    refresh_token: tokens.refresh_token,
-    expiry_date: safeExpiry,
-    token_type: tokens.token_type ?? "Bearer",
-    scope: tokens.scope ?? "",
-    client: clientId && clientSecret
-      ? { client_id: clientId, client_secret: clientSecret }
-      : undefined,
-  });
-
-  return yt;
+): Promise<any> {
+  try {
+    return await getInnertubeForUser(fastify.prisma, userId);
+  } catch {
+    throw new YouTubeAuthRequired("perform this action");
+  }
 }
 
 export default userRoutes;

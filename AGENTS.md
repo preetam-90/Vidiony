@@ -69,6 +69,29 @@ A video sharing platform built with Next.js, featuring video upload, playback, a
 3. Run `pnpm dev` to start development server (frontend) or `pnpm start` (backend)
 4. Access the frontend app at `http://localhost:3000`
 
+## File Search Strategy
+
+**ALWAYS use graphify as the PRIMARY search tool for finding files.** This is non-negotiable.
+
+### Search Order (in parallel):
+1. **graphify** - Query the knowledge graph first for fast, indexed file discovery
+2. **explore agents** - Spawn in parallel with graphify for contextual codebase grep
+3. **librarian agents** - Spawn in parallel for remote repo/doc lookups if needed
+4. **direct tools (grep, rg, sg, glob)** - Use directly for simple single-pattern searches
+
+### Fallback Rule:
+- If graphify does NOT find the file → THEN fall back to manual search (grep, glob, explore)
+- Never skip graphify and search manually first
+
+### Implementation:
+When searching for any file, function, component, or pattern:
+```
+1. Fire graphify skill in parallel with explore/librarian agents
+2. Wait for graphify result
+3. If graphify finds it → use that result
+4. If graphify misses → use explore/librarian results or manual grep
+```
+
 ## Notes
 
 - This is a frontend-focused project (Next.js)

@@ -37,26 +37,58 @@ function getText(val: unknown): string {
   return "";
 }
 
+function extractCountsFromPageHeader(header: unknown): { subscriberCount: string; videoCount: string } {
+   let extractedSubCount = "";
+   let extractedVidCount = "";
+
+   const h = header as {
+     content?: {
+       metadata?: {
+         metadata_rows?: Array<{
+           metadata_parts?: Array<{
+             text?: { text?: string };
+           }>;
+         }>;
+       };
+     };
+   } | undefined;
+
+   if (h?.content?.metadata?.metadata_rows) {
+     for (const row of h.content.metadata.metadata_rows) {
+       for (const part of row.metadata_parts || []) {
+         const text = part?.text?.text || "";
+         if (text.toLowerCase().includes("subscriber")) {
+           extractedSubCount = text;
+         } else if (text.toLowerCase().includes("video")) {
+           extractedVidCount = text;
+         }
+       }
+     }
+   }
+
+   return { subscriberCount: extractedSubCount, videoCount: extractedVidCount };
+}
+
 function getChannelBannerCandidates(header: unknown): unknown[] {
-  const h = header as {
-    banner?: unknown;
-    mobile_banner?: unknown;
-    tv_banner?: unknown;
-    content?: { banner?: { image?: unknown; thumbnails?: unknown } };
-  } | undefined;
+   const h = header as {
+     banner?: unknown;
+     mobile_banner?: unknown;
+     tv_banner?: unknown;
+     content?: { banner?: { image?: unknown; thumbnails?: unknown } };
+   } | undefined;
 
-  const candidates = [
-    (h?.banner as { thumbnails?: unknown } | undefined)?.thumbnails,
-    h?.banner,
-    (h?.mobile_banner as { thumbnails?: unknown } | undefined)?.thumbnails,
-    h?.mobile_banner,
-    (h?.tv_banner as { thumbnails?: unknown } | undefined)?.thumbnails,
-    h?.tv_banner,
-    h?.content?.banner?.image,
-    h?.content?.banner?.thumbnails,
-  ];
+   const candidates = [
+     (h?.banner as { thumbnails?: unknown } | undefined)?.thumbnails,
+     h?.banner,
+     (h?.mobile_banner as { thumbnails?: unknown } | undefined)?.thumbnails,
+     h?.mobile_banner,
+     (h?.tv_banner as { thumbnails?: unknown } | undefined)?.thumbnails,
+     h?.tv_banner,
+     h?.content?.banner?.image,
+     h?.content?.banner?.thumbnails,
+   ];
 
-  return candidates.find(Array.isArray) ?? [];
+   return candidates.find(Array.isArray) ?? [];
 }
 
 function getNestedValue(source: unknown, path: Array<string | number>): unknown {
@@ -528,38 +560,42 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
       const header = (ch as any).header as any;
       const c4Header = header?.c4TabbedHeader as any;
 
-      const channel = {
-        id,
-        name: getText(meta?.title ?? header?.title),
-        handle: meta?.custom_url ?? header?.channel_handle_text ?? "",
-        description: getText(meta?.description),
-        thumbnails: (meta?.thumbnail ?? []).map((t: any) => ({
-          url: t.url, width: t.width ?? 0, height: t.height ?? 0,
-        })),
-        banners: getChannelBannerCandidates(header).map((t: any) => ({
-          url: t.url, width: t.width ?? 0, height: t.height ?? 0,
-        })),
-        subscriberCount: (function() {
-          const s = getText(
-            c4Header?.subscriberCount ??
-            header?.subscriberCount ??
-            header?.subscriber_count ??
-            meta?.subscriber_count ??
-            meta?.viewCount ??
-            ""
-          );
-          return s || "—";
-        })(),
-        videoCount: getText(c4Header?.videosCount),
-        isVerified: header?.badges?.some((b: any) =>
-          getText(b.tooltip).toLowerCase().includes("verified")
-        ) ?? false,
-        links: (meta?.external_accounts ?? []).map((a: any) => ({
-          title: getText(a.platform_name),
-          url: a.profile_url ?? "",
-        })),
-        tabs: getChannelTabsWithFallback(ch),
-      };
+      const realChannelId = meta?.channelId ?? meta?.externalId ?? header?.channelId ?? c4Header?.channelId ?? id;
+
+       const { subscriberCount: extractedSubCount, videoCount: extractedVidCount } = extractCountsFromPageHeader(header);
+
+       const channel = {
+         id: realChannelId,
+         name: getText(meta?.title ?? header?.title),
+         handle: meta?.custom_url ?? header?.channel_handle_text ?? "",
+         description: getText(meta?.description),
+         thumbnails: (meta?.thumbnail ?? []).map((t: any) => ({
+           url: t.url, width: t.width ?? 0, height: t.height ?? 0,
+         })),
+         banners: getChannelBannerCandidates(header).map((t: any) => ({
+           url: t.url, width: t.width ?? 0, height: t.height ?? 0,
+         })),
+         subscriberCount: (function() {
+           const s = extractedSubCount || getText(
+             c4Header?.subscribers ??
+             header?.subscribers ??
+             header?.subscriber_count ??
+             meta?.subscriber_count ??
+             meta?.viewCount ??
+             ""
+           );
+           return s || "—";
+         })(),
+         videoCount: extractedVidCount || getText(c4Header?.videos_count),
+         isVerified: header?.badges?.some((b: any) =>
+           getText(b.tooltip).toLowerCase().includes("verified")
+         ) ?? false,
+         links: (meta?.external_accounts ?? []).map((a: any) => ({
+           title: getText(a.platform_name),
+           url: a.profile_url ?? "",
+         })),
+         tabs: getChannelTabsWithFallback(ch),
+       };
 
       const response = { success: true, channel };
       await setCachedData(cacheKey, response, 14_400); // 4h
@@ -920,18 +956,20 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
       const header = (ch as any).header as any;
       const c4Header = header?.c4TabbedHeader as any;
 
-      const about = {
-        description: getText(meta?.description),
-        subscriberCount: getText(c4Header?.subscriberCount),
-        videoCount: getText(c4Header?.videosCount),
-        totalViewCount: getText(meta?.viewCount),
-        joinedDate: meta?.joinedDate ?? null,
-        links: (meta?.external_accounts ?? []).map((a: any) => ({
-          title: getText(a.platform_name),
-          url: a.profile_url ?? "",
-        })),
-        country: meta?.country ?? null,
-      };
+       const { subscriberCount: extractedSubCount, videoCount: extractedVidCount } = extractCountsFromPageHeader(header);
+
+       const about = {
+         description: getText(meta?.description),
+         subscriberCount: extractedSubCount || getText(c4Header?.subscribers),
+         videoCount: extractedVidCount || getText(c4Header?.videos_count),
+         totalViewCount: getText(meta?.viewCount),
+         joinedDate: meta?.joinedDate ?? null,
+         links: (meta?.external_accounts ?? []).map((a: any) => ({
+           title: getText(a.platform_name),
+           url: a.profile_url ?? "",
+         })),
+         country: meta?.country ?? null,
+       };
 
       const response = { success: true, channelId: id, about };
       await setCachedData(cacheKey, response, 14_400); // 4h
@@ -968,7 +1006,7 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Subscribe / Unsubscribe via YouTube Data API v3 (requires connected YouTube account)
-  fastify.post("/:id/subscribe", { preHandler: [fastify.requireYouTube] }, async (req: any, reply) => {
+  fastify.post("/:id/subscribe", { preHandler: [fastify.authenticate] }, async (req: any, reply) => {
     const idParsed = ChannelIdSchema.safeParse(req.params);
     if (!idParsed.success) return reply.status(400).send({ success: false, error: { code: "VALIDATION_ERROR", message: "Invalid channel ID" } });
     const channelId = idParsed.data.id;
@@ -995,7 +1033,7 @@ const channelRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.delete("/:id/subscribe", { preHandler: [fastify.requireYouTube] }, async (req: any, reply) => {
+  fastify.delete("/:id/subscribe", { preHandler: [fastify.authenticate] }, async (req: any, reply) => {
     const idParsed = ChannelIdSchema.safeParse(req.params);
     if (!idParsed.success) return reply.status(400).send({ success: false, error: { code: "VALIDATION_ERROR", message: "Invalid channel ID" } });
     const channelId = idParsed.data.id;

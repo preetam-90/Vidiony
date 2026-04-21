@@ -1,0 +1,75 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e6]:
+      - banner [ref=e7]:
+        - generic [ref=e8]:
+          - link "Vidiony" [ref=e10] [cursor=pointer]:
+            - /url: /
+            - img [ref=e12]
+            - generic [ref=e14]: Vidiony
+          - generic [ref=e17]:
+            - img [ref=e18]
+            - searchbox "Search videos..." [ref=e21]
+          - generic [ref=e23]:
+            - link "Sign In" [ref=e24] [cursor=pointer]:
+              - /url: /auth/login
+            - link "Get Started" [ref=e25] [cursor=pointer]:
+              - /url: /auth/register
+      - main [ref=e26]:
+        - generic [ref=e27]:
+          - img [ref=e29]
+          - generic [ref=e32]:
+            - heading "Explore" [level=1] [ref=e33]
+            - paragraph [ref=e34]: Discover trending videos and curated content
+        - heading "Trending Now" [level=2] [ref=e37]: Trending Now
+        - link "Music Explore music content" [ref=e47] [cursor=pointer]:
+          - /url: /category/music
+          - img [ref=e49]
+          - generic [ref=e53]:
+            - heading "Music" [level=2] [ref=e54]:
+              - text: Music
+              - img [ref=e55]
+            - paragraph [ref=e57]: Explore music content
+        - link "Gaming Explore gaming content" [ref=e93] [cursor=pointer]:
+          - /url: /category/gaming
+          - img [ref=e95]
+          - generic [ref=e97]:
+            - heading "Gaming" [level=2] [ref=e98]:
+              - text: Gaming
+              - img [ref=e99]
+            - paragraph [ref=e101]: Explore gaming content
+        - link "Coding Explore coding content" [ref=e137] [cursor=pointer]:
+          - /url: /category/programming
+          - img [ref=e139]
+          - generic [ref=e143]:
+            - heading "Coding" [level=2] [ref=e144]:
+              - text: Coding
+              - img [ref=e145]
+            - paragraph [ref=e147]: Explore coding content
+        - link "AI & Tech Explore ai & tech content" [ref=e183] [cursor=pointer]:
+          - /url: /category/ai
+          - img [ref=e185]
+          - generic [ref=e193]:
+            - heading "AI & Tech" [level=2] [ref=e194]:
+              - text: AI & Tech
+              - img [ref=e195]
+            - paragraph [ref=e197]: Explore ai & tech content
+        - link "Film & TV Explore film & tv content" [ref=e233] [cursor=pointer]:
+          - /url: /category/film
+          - img [ref=e235]
+          - generic [ref=e240]:
+            - heading "Film & TV" [level=2] [ref=e241]:
+              - text: Film & TV
+              - img [ref=e242]
+            - paragraph [ref=e244]: Explore film & tv content
+        - link "Education Explore education content" [ref=e280] [cursor=pointer]:
+          - /url: /category/education
+          - img [ref=e282]
+          - generic [ref=e285]:
+            - heading "Education" [level=2] [ref=e286]:
+              - text: Education
+              - img [ref=e287]
+            - paragraph [ref=e289]: Explore education content
+    - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e328] [cursor=pointer]:
+    - img [ref=e329]

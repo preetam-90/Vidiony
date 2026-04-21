@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm *)",
+      "Bash(git *)",
+      "Read",
+      "Edit",
+      "Grep",
+      "Glob",
+      "WebFetch",
+      "WebSearch",
+      "mcp__*"
+    ]
+  },
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://integrate.api.nvidia.com/v1",
+    "ANTHROPIC_API_KEY": "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",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION": "nvidia_nim/moonshotai/kimi-k2-thinking",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "NVIDIA NIM Claude Code",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION": "Claude Code routed through NVIDIA NIM",
+    "ANTHROPIC_MODEL": "nvidia_nim/moonshotai/kimi-k2-thinking",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "nvidia_nim/moonshotai/kimi-k2.5",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "nvidia_nim/moonshotai/kimi-k2-thinking",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "nvidia_nim/mistralai/devstral-2-123b-instruct-2512",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "nvidia_nim/moonshotai/kimi-k2.5",
+    "NIM_ENABLE_THINKING": "true"
+  },
+  "providers": {
+    "nvidia": {
+      "type": "openai-compatible",
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "apiKeyEnv": "NVIDIA_API_KEY"
+    }
+  },
+  "routing": {
+    "large": {
+      "provider": "nvidia",
+      "model": "moonshotai/kimi-k2-thinking"
+    },
+    "medium": {
+      "provider": "nvidia",
+      "model": "mistralai/devstral-2-123b-instruct-2512"
+    },
+    "small": {
+      "provider": "nvidia",
+      "model": "moonshotai/kimi-k2.5"
+    }
+  },
+  "model": "moonshotai/kimi-k2-thinking"
+}

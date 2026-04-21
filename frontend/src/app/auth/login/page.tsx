@@ -25,6 +25,34 @@ const ERROR_MESSAGES: Record<string, string> = {
   no_token:       "Authentication failed. Please try again.",
 };
 
+function CloudPattern() {
+  return (
+    <svg className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none text-red-100" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="chinese-cloud" x="0" y="0" width="120" height="120" patternUnits="userSpaceOnUse">
+          <path d="M30 40c0-11 9-20 20-20s20 9 20 20c11 0 20 9 20 20s-9 20-20 20H30c-11 0-20-9-20-20s9-20 20-20z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M50 40c0-5.5 4.5-10 10-10s10 4.5 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </pattern>
+      </defs>
+      <rect x="0" y="0" width="100%" height="100%" fill="url(#chinese-cloud)" />
+    </svg>
+  );
+}
+
+function LatticeDivider() {
+  return (
+    <div className="flex items-center justify-center w-full my-8 opacity-60">
+      <div className="h-px bg-gradient-to-r from-transparent via-red-800 to-transparent flex-1" />
+      <div className="mx-4 flex gap-1.5">
+        <div className="w-1.5 h-1.5 rotate-45 border border-red-500" />
+        <div className="w-2 h-2 rotate-45 border border-amber-500 bg-amber-500/20" />
+        <div className="w-1.5 h-1.5 rotate-45 border border-red-500" />
+      </div>
+      <div className="h-px bg-gradient-to-r from-red-800 via-transparent to-transparent flex-1" />
+    </div>
+  );
+}
+
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,87 +74,167 @@ function LoginContent() {
   if (isLoading) return null;
 
   return (
-    <div className="w-full max-w-sm space-y-8">
-      {/* Logo */}
-      <div className="flex flex-col items-center gap-3">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600/20 ring-1 ring-violet-500/30">
-            <svg viewBox="0 0 40 40" className="h-7 w-7 text-violet-400" fill="none">
-              <path d="M10 30V10L20 22L30 10V30" stroke="currentColor" strokeWidth="3.5"
-                strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+    <div className="relative w-full max-w-md mx-auto p-10 sm:p-12 rounded-lg overflow-hidden border border-red-900/30 bg-[#0a0a0a]/80 backdrop-blur-xl shadow-2xl">
+      {/* Decorative lattice corners */}
+      <div className="absolute top-0 left-0 w-12 h-12 border-t border-l border-red-800/40 opacity-70 pointer-events-none">
+        <div className="absolute top-1.5 left-1.5 w-8 h-8 border-t border-l border-amber-600/30" />
+      </div>
+      <div className="absolute top-0 right-0 w-12 h-12 border-t border-r border-red-800/40 opacity-70 pointer-events-none">
+        <div className="absolute top-1.5 right-1.5 w-8 h-8 border-t border-r border-amber-600/30" />
+      </div>
+      <div className="absolute bottom-0 left-0 w-12 h-12 border-b border-l border-red-800/40 opacity-70 pointer-events-none">
+        <div className="absolute bottom-1.5 left-1.5 w-8 h-8 border-b border-l border-amber-600/30" />
+      </div>
+      <div className="absolute bottom-0 right-0 w-12 h-12 border-b border-r border-red-800/40 opacity-70 pointer-events-none">
+        <div className="absolute bottom-1.5 right-1.5 w-8 h-8 border-b border-r border-amber-600/30" />
+      </div>
+
+      {/* Logo & Header */}
+      <div className="relative flex flex-col items-center gap-5 z-10">
+        <Link href="/" className="flex flex-col items-center gap-5 group">
+          <div className="flex h-14 w-14 items-center justify-center border-2 border-red-700 bg-red-950/40 text-red-500 shadow-[0_0_20px_rgba(220,38,38,0.2)] transition-all duration-500 group-hover:shadow-[0_0_35px_rgba(220,38,38,0.4)] group-hover:bg-red-900/50" style={{ borderRadius: '4px' }}>
+            <span className="font-serif font-bold text-2xl tracking-tighter">V</span>
           </div>
-          <span className="text-2xl font-bold tracking-tight">Vidion</span>
+          <span className="text-2xl font-bold tracking-[0.3em] text-transparent bg-clip-text bg-gradient-to-b from-amber-100 to-red-600 uppercase ml-[0.3em]">
+            Vidion
+          </span>
         </Link>
-        <div className="text-center">
-          <h1 className="text-xl font-semibold">Sign in to Vidion</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Your YouTube account, supercharged</p>
+        <div className="text-center mt-2">
+          <h1 className="text-[0.95rem] tracking-[0.2em] text-slate-300 font-medium uppercase">Enter the Realm</h1>
+          <p className="mt-2 text-sm tracking-wide text-slate-500">Your visual journey awaits</p>
         </div>
       </div>
 
+      <LatticeDivider />
+
       {/* Error banner */}
       {errorMsg && (
-        <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div className="relative z-10 mb-6 rounded border border-red-500/30 bg-red-950/40 px-4 py-3 text-sm text-red-300 text-center tracking-wide shadow-inner shadow-red-900/20">
           {errorMsg}
         </div>
       )}
 
-      {/* Google button */}
-      <div className="space-y-4">
+      {/* Action Area */}
+      <div className="relative z-10 space-y-6">
         <button
           onClick={handleGoogleLogin}
           disabled={isRedirecting}
-          className="group flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-6 py-3.5 text-sm font-medium transition-all hover:bg-white/[0.08] hover:border-white/20 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="group relative flex w-full items-center justify-center gap-4 rounded bg-gradient-to-b from-[#1a0f0f] to-[#120a0a] border border-red-900/60 px-6 py-4 text-[0.8rem] tracking-[0.15em] font-medium text-slate-200 transition-all duration-300 hover:border-red-500/50 hover:shadow-[0_0_25px_rgba(220,38,38,0.15)] hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:transform-none disabled:cursor-not-allowed overflow-hidden uppercase"
         >
+          {/* Subtle animated gloss effect */}
+          <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-red-600/10 to-transparent group-hover:animate-[shimmer_2s_infinite]" />
+          
           {isRedirecting
-            ? <Loader2 className="h-5 w-5 animate-spin" />
-            : <GoogleLogo className="h-5 w-5 flex-shrink-0" />
+            ? <Loader2 className="h-5 w-5 animate-spin text-red-500 drop-shadow-[0_0_5px_rgba(220,38,38,0.8)]" />
+            : <GoogleLogo className="h-5 w-5 flex-shrink-0 opacity-80 group-hover:opacity-100 transition-opacity duration-300" />
           }
-          <span>{isRedirecting ? "Redirecting to Google…" : "Continue with Google"}</span>
+          <span className="mt-[2px]">{isRedirecting ? "Opening Gates..." : "Continue with Google"}</span>
         </button>
-
-        {/* What you unlock */}
-        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 space-y-2.5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Signing in gives you access to
-          </p>
-          {[
-            { icon: "🎬", text: "Your real YouTube watch history" },
-            { icon: "👍", text: "Liked videos & Watch Later" },
-            { icon: "📋", text: "Your playlists & subscriptions" },
-            { icon: "🔔", text: "YouTube notifications" },
-          ].map(({ icon, text }) => (
-            <div key={text} className="flex items-center gap-2.5 text-sm text-muted-foreground">
-              <span>{icon}</span>
-              <span>{text}</span>
-            </div>
-          ))}
-        </div>
       </div>
 
-      <p className="text-center text-xs text-muted-foreground/50">
-        By signing in you agree to our{" "}
-        <Link href="/terms" className="underline hover:text-muted-foreground">Terms</Link>{" "}and{" "}
-        <Link href="/privacy" className="underline hover:text-muted-foreground">Privacy Policy</Link>.
-        Vidion does not store your Google password.
-      </p>
+      <div className="relative z-10 mt-8 text-center text-xs tracking-wide text-slate-600 leading-relaxed font-light">
+        <p>By crossing this threshold, you accept our</p>
+        <p className="mt-1">
+          <Link href="/terms" className="text-amber-700 hover:text-amber-500 transition-colors underline decoration-amber-900/50 underline-offset-4">Terms</Link>
+          <span className="mx-2 text-slate-700">·</span>
+          <Link href="/privacy" className="text-amber-700 hover:text-amber-500 transition-colors underline decoration-amber-900/50 underline-offset-4">Privacy</Link>
+        </p>
+      </div>
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f] p-4">
-      <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(139,92,246,0.15),transparent)]" />
+    <div className="min-h-screen w-full flex bg-[#030303] text-slate-200 overflow-hidden font-sans">
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes shimmer {
+          100% { transform: translateX(100%); }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-15px) scale(1.02); }
+        }
+        @keyframes pulse-lantern {
+          0%, 100% { opacity: 0.15; transform: scale(1); }
+          50% { opacity: 0.25; transform: scale(1.05); }
+        }
+      `}} />
+      
+      {/* Universal Background Layer */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <CloudPattern />
+        {/* Soft center lantern glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[radial-gradient(circle_at_center,rgba(220,38,38,0.12)_0%,rgba(180,83,9,0.05)_40%,transparent_70%)] animate-[pulse-lantern_8s_ease-in-out_infinite]" />
       </div>
-      <Suspense fallback={
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" />
+
+      {/* Left Panel - Dramatic Illustration Motif (Hidden on mobile) */}
+      <div className="hidden lg:flex relative w-[55%] border-r border-red-950/40 flex-col items-center justify-center p-12 overflow-hidden bg-gradient-to-br from-[#050303] via-[#0a0505] to-[#050202]">
+        {/* Deep ink wash textures using radial gradients */}
+        <div className="absolute inset-0 z-0 opacity-40 mix-blend-screen pointer-events-none">
+          <div className="w-full h-full bg-[radial-gradient(circle_at_top_right,rgba(220,38,38,0.15),transparent_60%)]" />
+          <div className="w-full h-full bg-[radial-gradient(circle_at_bottom_left,rgba(217,119,6,0.08),transparent_60%)]" />
         </div>
-      }>
-        <LoginContent />
-      </Suspense>
+
+        {/* Floating Motif Illustration */}
+        <div className="relative z-10 w-full max-w-[500px] aspect-square animate-[float_12s_ease-in-out_infinite]">
+          <svg viewBox="0 0 400 400" className="w-full h-full drop-shadow-[0_0_40px_rgba(220,38,38,0.15)]">
+            <defs>
+              <radialGradient id="sun-grad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#DC2626" stopOpacity="0.9" />
+                <stop offset="60%" stopColor="#991B1B" stopOpacity="0.7" />
+                <stop offset="100%" stopColor="#7F1D1D" stopOpacity="0" />
+              </radialGradient>
+              <linearGradient id="mount-front" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#0a0a0a" stopOpacity="0.9" />
+                <stop offset="100%" stopColor="#450a0a" stopOpacity="0.6" />
+              </linearGradient>
+              <linearGradient id="mount-back" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#022c22" stopOpacity="0.8" />
+                <stop offset="100%" stopColor="#064e3b" stopOpacity="0.1" />
+              </linearGradient>
+              <linearGradient id="mist" x1="0%" y1="100%" x2="0%" y2="0%">
+                <stop offset="0%" stopColor="#050505" stopOpacity="1" />
+                <stop offset="100%" stopColor="#050505" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+
+            {/* Glowing Sun */}
+            <circle cx="200" cy="180" r="110" fill="url(#sun-grad)" />
+
+            {/* Distant jade peaks */}
+            <path d="M-50,320 Q100,180 220,270 T480,200 L480,400 L-50,400 Z" fill="url(#mount-back)" stroke="#059669" strokeWidth="0.5" strokeOpacity="0.4" />
+            
+            {/* Front dark peaks */}
+            <path d="M-20,400 Q150,220 260,300 T450,400 Z" fill="url(#mount-front)" stroke="#DC2626" strokeWidth="1" strokeOpacity="0.4" />
+            <path d="M120,400 Q220,290 300,340 T450,400 Z" fill="#030303" stroke="#D97706" strokeWidth="0.5" strokeOpacity="0.5" />
+            
+            {/* Base Mist to blend with background */}
+            <rect x="0" y="300" width="400" height="100" fill="url(#mist)" />
+
+            {/* Stylized Minimalist Clouds */}
+            <g stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.4">
+              <path d="M110,140 Q130,120 150,140 Q170,120 190,140" />
+              <path d="M260,100 Q280,80 300,100 Q320,80 340,100" />
+              <path d="M70,220 Q90,200 110,220 Q130,200 150,220" />
+            </g>
+          </svg>
+        </div>
+
+
+      </div>
+
+      {/* Right Panel - Form Area */}
+      <div className="relative w-full lg:w-[45%] flex items-center justify-center p-6 sm:p-12 z-10">
+        <Suspense fallback={
+          <div className="flex flex-col items-center gap-4 text-red-600/80">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <span className="tracking-[0.3em] text-xs uppercase font-medium">Entering...</span>
+          </div>
+        }>
+          <LoginContent />
+        </Suspense>
+      </div>
     </div>
   );
 }
